@@ -1,62 +1,64 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { Share2, Home as HomeIcon, Info } from 'lucide-react';
-
-function Navbar() {
-  return (
-    <nav className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow-lg">
-      <div className="flex items-center space-x-2">
-        <Share2 className="text-blue-500 w-6 h-6" />
-        <h1 className="text-xl font-bold tracking-wide">DataShare</h1>
-      </div>
-      <div className="space-x-6 flex items-center">
-        <Link to="/" className="flex items-center gap-1.5 hover:text-blue-400 transition-colors">
-          <HomeIcon className="w-4 h-4" /> Home
-        </Link>
-        <Link to="/about" className="flex items-center gap-1.5 hover:text-blue-400 transition-colors">
-          <Info className="w-4 h-4" /> About
-        </Link>
-      </div>
-    </nav>
-  );
-}
-
-function Home() {
-  return (
-    <div className="max-w-4xl mx-auto mt-10 p-8 bg-white rounded-2xl shadow-sm border border-slate-200">
-      <h2 className="text-3xl font-bold text-slate-800">Welcome to DataShare!</h2>
-      <p className="mt-4 text-slate-600 leading-relaxed text-lg">
-        Your full stack is now working: <span className="font-semibold text-blue-600">React + TypeScript + Tailwind CSS + Lucide Icons + React Router</span>.
-      </p>
-      <button className="mt-6 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl shadow hover:bg-blue-700 transition">
-        Start Sharing Data
-      </button>
-    </div>
-  );
-}
-
-function About() {
-  return (
-    <div className="max-w-4xl mx-auto mt-10 p-8 bg-white rounded-2xl shadow-sm border border-slate-200">
-      <h2 className="text-3xl font-bold text-slate-800">About DataShare</h2>
-      <p className="mt-4 text-slate-600 text-lg">
-        This is a multi-page React application running smoothly with client-side routing.
-      </p>
-    </div>
-  );
-}
+import { useState } from 'react';
+import { Navbar } from './components/navigation/Navbar';
+import { LeftSidebar } from './components/navigation/LeftSidebar';
+import { RightSidebar } from './components/navigation/RightSidebar';
+import { PostCard } from './components/ui/PostCard';
 
 export default function App() {
+  const [activeFilter, setActiveFilter] = useState<'Best' | 'Hot' | 'New' | 'Top'>('Best');
+  const filterButtons: ('Best' | 'Hot' | 'New' | 'Top')[] = ['Best', 'Hot', 'New', 'Top'];
+
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-slate-50">
-        <Navbar />
-        <main className="p-6">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-          </Routes>
+    <>
+      {/* Top Navbar */}
+      <Navbar />
+
+      {/* 3-Column Community Grid Layout */}
+      <div className="app-layout">
+        {/* Left Sidebar */}
+        <LeftSidebar />
+
+        {/* Main Feed Content */}
+        <main className="main-feed">
+          {/* Feed Controls (Best, Hot, New, Top) */}
+          <div className="feed-controls">
+            {filterButtons.map((filter) => (
+              <button
+                key={filter}
+                className={`filter-btn ${activeFilter === filter ? 'active' : ''}`}
+                onClick={() => setActiveFilter(filter)}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+
+          {/* Text Post */}
+          <PostCard
+            community="r/MakeMoneyHacks"
+            author="developer"
+            timeAgo="2 hours ago"
+            title="What high-income skill would you learn from scratch in 2026?"
+            bodyText="Looking for recommendations on what digital skills have the highest demand right now. Let's discuss backend, AI integration, design, and marketing."
+            initialVotes={184}
+            commentsCount={42}
+          />
+
+          {/* Image Post */}
+          <PostCard
+            community="r/webdev"
+            author="designer"
+            timeAgo="5 hours ago"
+            title="Modern CSS Grid vs. Flexbox: Visual cheat sheet"
+            imageUrl="https://picsum.photos/800/450"
+            initialVotes={512}
+            commentsCount={89}
+          />
         </main>
+
+        {/* Right Sidebar */}
+        <RightSidebar />
       </div>
-    </BrowserRouter>
+    </>
   );
 }
