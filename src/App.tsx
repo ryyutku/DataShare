@@ -1,12 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from './components/navigation/Navbar';
 import { LeftSidebar } from './components/navigation/LeftSidebar';
 import { RightSidebar } from './components/navigation/RightSidebar';
 import { PostCard } from './components/ui/PostCard';
+import { getPosts, type Post } from './services/postService';
 
 export default function App() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [activeFilter, setActiveFilter] = useState<'Best' | 'Hot' | 'New' | 'Top'>('Best');
   const filterButtons: ('Best' | 'Hot' | 'New' | 'Top')[] = ['Best', 'Hot', 'New', 'Top'];
+
+  // Call the Supabase API on page load
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const data = await getPosts();
+        setPosts(data);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch posts');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
 
   return (
     <>
@@ -33,16 +55,44 @@ export default function App() {
             ))}
           </div>
 
+          {/* Loading State */}
+          {loading && (
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px' }}>
+              Loading posts from Supabase...
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div style={{ color: '#ff4500', textAlign: 'center', padding: '32px' }}>
+              Error: {error}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && posts.length === 0 && (
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px' }}>
+              No posts found. Create one in Supabase!
+            </div>
+          )}
+
           {/* Text Post */}
-          <PostCard
-            community="r/MakeMoneyHacks"
-            author="developer"
-            timeAgo="2 hours ago"
-            title="What high-income skill would you learn from scratch in 2026?"
-            bodyText="Looking for recommendations on what digital skills have the highest demand right now. Let's discuss backend, AI integration, design, and marketing."
-            initialVotes={184}
-            commentsCount={42}
-          />
+          {/* Live Data from Supabase */}
+          {!loading &&
+            posts.map((post) => (
+              <PostCard
+                key={post.id}
+                community={post.community_name}
+                author={post.author_name}
+                timeAgo={new Date(post.created_at).toLocaleDateString()}
+                title={post.title}
+                bodyText={post.body}
+                imageUrl={post.image_url}
+                initialVotes={post.upvotes}
+                commentsCount={0}
+              />
+            ))}
+
 
           {/* Image Post */}
           <PostCard
