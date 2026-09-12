@@ -47,6 +47,7 @@ npm install
 
 ```bash
 npm run dev
+npx tsx server.ts
 ```
 
 ### 4. Open in browser
