@@ -42,9 +42,8 @@ export async function getPosts(communityId?: string): Promise<Post[]> {
       goal_count,
       created_at,
       updated_at,
-      author:profiles!post_author_id_fkey (
-        username,
-        avatar_url
+      author:user!post_author_id_fkey (
+        username
       ),
       community:community!post_community_id_fkey (
         slug,
@@ -83,9 +82,8 @@ export async function getPostById(postId: string): Promise<Post | null> {
       goal_count,
       created_at,
       updated_at,
-      author:profiles!post_author_id_fkey (
-        username,
-        avatar_url
+      author:user!post_author_id_fkey (
+        username
       ),
       community:community!post_community_id_fkey (
         slug,
