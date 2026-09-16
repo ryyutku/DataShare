@@ -7,12 +7,16 @@ import { CreatePostPage } from './pages/CreatePostPage';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
+  const [searchFilter, setSearchFilter] = useState<string>('');
 
   return (
     <>
-      <Navbar onNavigate={(page) => setCurrentPage(page)} />
+      <Navbar
+        onNavigate={(page) => setCurrentPage(page)}
+        onSearch={(query) => setSearchFilter(query)}
+      />
       {currentPage === 'home' && (
-        <HomePage onNavigate={(page) => setCurrentPage(page)} />
+        <HomePage searchFilter={searchFilter} onClearSearch={() => setSearchFilter('')} onNavigate={(page) => setCurrentPage(page)} />
       )}
       {currentPage === 'profile' && <ProfilePage />}
       {currentPage === 'create-post' && (

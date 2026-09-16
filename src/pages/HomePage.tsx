@@ -6,13 +6,33 @@ import { PostCard } from '../components/ui/PostCard';
 import { getPosts, type Post } from '../services/postService';
 
 interface HomePageProps {
+  searchFilter: string;
+  onClearSearch?: () => void;
   onNavigate?: (page: 'home' | 'profile' | 'create-post') => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
+export const HomePage: React.FC<HomePageProps> = ({ searchFilter, onClearSearch, onNavigate }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      let allPosts = await getPosts();
+      if (searchFilter.trim()) {
+        const q = searchFilter.toLowerCase();
+        allPosts = allPosts.filter(p =>
+          p.title.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q)
+        );
+      }
+      setPosts(allPosts);
+      setLoading(false);
+    }
+    load();
+  }, [searchFilter]);
 
 
   useEffect(() => {
@@ -41,7 +61,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
         {!loading && !error && posts.length === 0 && (
           <div style={{ color: 'var(--text-muted)', padding: '24px', textAlign: 'center' }}>
-            No posts found.
+            No posts found for "{searchFilter}".
           </div>
         )}
 

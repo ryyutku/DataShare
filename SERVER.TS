@@ -1407,6 +1407,26 @@ const swaggerDocument = {
         },
 
         //user service end
+
+        '/api/search': {
+            get: {
+                tags: ['Global Search'],
+                summary: 'searchAll() - Search across both Communities and Posts',
+                description: 'Searches community names/slugs and post titles/descriptions using case-insensitive partial matching.',
+                parameters: [
+                    {
+                        name: 'q',
+                        in: 'query',
+                        required: true,
+                        schema: { type: 'string', example: 'car' },
+                        description: 'The search keyword'
+                    }
+                ],
+                responses: {
+                    200: { description: 'Returns { communities: [...], posts: [...] }' }
+                }
+            }
+        },
     }
 };
 
@@ -2637,6 +2657,46 @@ app.get('/api/users/:id', async (req, res) => {
     if (error) return res.status(404).json({ error: 'User not found', details: error.message });
     res.json(data);
 });
+
+// GLOBAL SEARCH ENDPOINT (Communities + Posts)
+app.get('/api/search', async (req, res) => {
+    const q = (req.query.q as string || '').trim();
+    if (!q) {
+        return res.json({ communities: [], posts: [] });
+    }
+
+    // 1. Search Communities (Matches name or slug)
+    const { data: communities, error: commError } = await supabase
+        .from('community')
+        .select('id, name, slug, description')
+        .or(`name.ilike.%${q}%,slug.ilike.%${q}%,description.ilike.%${q}%`)
+        .limit(5);
+
+    if (commError) return res.status(500).json(commError);
+
+    // 2. Search Posts (Matches title or description)
+    const { data: posts, error: postError } = await supabase
+        .from('post')
+        .select(`
+      id,
+      title,
+      description,
+      community:community!post_community_id_fkey (slug, name),
+      author:user!post_author_id_fkey (username)
+    `)
+        .or(`title.ilike.%${q}%,description.ilike.%${q}%`)
+        .limit(10);
+
+    if (postError) return res.status(500).json(postError);
+
+    res.json({
+        query: q,
+        communities: communities || [],
+        posts: posts || [],
+    });
+});
+
+
 // 5. Start Server
 const PORT = 5000;
 app.listen(PORT, () => {
