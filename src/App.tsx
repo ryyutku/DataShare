@@ -1,22 +1,53 @@
 // src/App.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar, type PageType } from './components/navigation/Navbar';
 import { HomePage } from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import { CreatePostPage } from './pages/CreatePostPage';
+import { CommunityPage } from './pages/CommunityPage';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>('home');
+  // Read initial values from localStorage so page stays after refresh
+  const [currentPage, setCurrentPage] = useState<PageType>(() => {
+    return (localStorage.getItem('reddit_current_page') as PageType) || 'home';
+  });
+
+  const [currentCommunitySlug, setCurrentCommunitySlug] = useState<string>(() => {
+    return localStorage.getItem('reddit_current_slug') || '';
+  });
+
+  const handleNavigate = (page: PageType, slug?: string) => {
+    setCurrentPage(page);
+    localStorage.setItem('reddit_current_page', page);
+
+    if (slug) {
+      setCurrentCommunitySlug(slug);
+      localStorage.setItem('reddit_current_slug', slug);
+    }
+    window.scrollTo(0, 0);
+  };
 
   return (
     <>
-      <Navbar onNavigate={(page) => setCurrentPage(page)} />
+      <Navbar onNavigate={handleNavigate} />
+
       {currentPage === 'home' && (
-        <HomePage onNavigate={(page) => setCurrentPage(page)} />
+        <HomePage onNavigate={handleNavigate} />
       )}
-      {currentPage === 'profile' && <ProfilePage />}
+
+      {currentPage === 'profile' && (
+        <ProfilePage onNavigate={handleNavigate} />
+      )}
+
       {currentPage === 'create-post' && (
-        <CreatePostPage onNavigate={(page) => setCurrentPage(page)} />
+        <CreatePostPage onNavigate={handleNavigate} />
+      )}
+
+      {currentPage === 'community' && (
+        <CommunityPage 
+          slug={currentCommunitySlug} 
+          onNavigate={handleNavigate} 
+        />
       )}
     </>
   );

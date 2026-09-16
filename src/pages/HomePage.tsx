@@ -1,12 +1,13 @@
 // src/pages/HomePage.tsx
 import { useState, useEffect } from 'react';
+import { type PageType } from '../components/navigation/Navbar';
 import { LeftSidebar } from '../components/navigation/LeftSidebar';
 import { RightSidebar } from '../components/navigation/RightSidebar';
 import { PostCard } from '../components/ui/PostCard';
 import { getPosts, type Post } from '../services/postService';
 
 interface HomePageProps {
-  onNavigate?: (page: 'home' | 'profile' | 'create-post') => void;
+  onNavigate: (page: PageType, slug?: string) => void; 
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
@@ -30,9 +31,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     loadData();
   }, []);
 
+
+  
   return (
     <div className="app-layout">
-      <LeftSidebar />
+      <LeftSidebar onNavigate={onNavigate}/>
 
       <main className="main-feed">
 
@@ -65,3 +68,4 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     </div>
   );
 };
+

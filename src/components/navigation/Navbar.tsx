@@ -4,10 +4,10 @@ import { Search, Plus, Compass } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { LoginModal } from '../auth/LoginModal';
 
-export type PageType = 'home' | 'profile' | 'create-post';
+export type PageType = 'home' | 'profile' | 'create-post' | 'community';
 
 interface NavbarProps {
-  onNavigate: (page: PageType) => void;
+  onNavigate: (page: PageType, slug?: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
