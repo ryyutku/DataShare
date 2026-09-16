@@ -1,3 +1,4 @@
+// RightSidebar.tsx
 export const RightSidebar = () => {
     return (
         <aside className="right-sidebar">

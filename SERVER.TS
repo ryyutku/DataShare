@@ -14,7 +14,10 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+import cors from 'cors';
+
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 // 2. Swagger UI Document Specification
@@ -1547,6 +1550,10 @@ app.get('/api/communities', async (_req, res) => {
 app.post('/api/communities', async (req, res) => {
     const { name, slug, description, created_by } = req.body;
 
+    if (!name || !slug || !description || !created_by) {
+        return res.status(400).json({ error: 'Missing required fields: name, slug, description, or created_by' });
+    }
+
     const cleanSlug = slug
         .trim()
         .toLowerCase()
@@ -1575,10 +1582,14 @@ app.get('/api/communities/search', async (req, res) => {
     const q = req.query.q as string;
     if (!q) return res.json([]);
 
+    // Strip PostgREST reserved filter characters
+    const cleanQ = q.replace(/[,().]/g, '').trim();
+    if (!cleanQ) return res.json([]);
+
     const { data, error } = await supabase
         .from('community')
         .select('*')
-        .or(`name.ilike.%${q}%,slug.ilike.%${q}%`)
+        .or(`name.ilike.%${cleanQ}%,slug.ilike.%${cleanQ}%`)
         .limit(10);
 
     if (error) return res.status(500).json(error);
@@ -1817,8 +1828,10 @@ app.get('/api/tags', async (req, res) => {
         .order('name', { ascending: true });
 
     if (search && search.trim() !== '') {
-        const term = search.trim().toLowerCase();
-        query = query.or(`name.ilike.%${term}%,slug.ilike.%${term}%`);
+        const term = search.replace(/[,().]/g, '').trim().toLowerCase();
+        if (term) {
+            query = query.or(`name.ilike.%${term}%,slug.ilike.%${term}%`);
+        }
     }
 
     const { data, error } = await query.limit(20);
@@ -2203,11 +2216,17 @@ app.post('/api/submission-rows/bulk', async (req, res) => {
 app.put('/api/submission-rows/revise', async (req, res) => {
     const { old_row_id, post_id, editor_id, updated_data } = req.body;
 
+    if (!old_row_id || !post_id || !editor_id || !updated_data) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     // 1. Mark old row as inactive
-    await supabase
+    const { error: updateError } = await supabase
         .from('submission_row')
         .update({ is_current: false })
         .eq('id', old_row_id);
+
+    if (updateError) return res.status(500).json(updateError);
 
     // 2. Insert revised row pointing to parent
     const { data: newRow, error } = await supabase
@@ -2476,8 +2495,8 @@ app.delete('/api/user-interests/remove', async (req, res) => {
 // 6. BULK SET INTERESTS (ONBOARDING)
 app.post('/api/user-interests/bulk', async (req, res) => {
     const { user_id, tag_ids } = req.body;
-    if (!tag_ids || !Array.isArray(tag_ids) || tag_ids.length === 0) {
-        return res.status(400).json({ error: 'tag_ids must be a non-empty array' });
+    if (!user_id || !tag_ids || !Array.isArray(tag_ids) || tag_ids.length === 0) {
+        return res.status(400).json({ error: 'user_id and non-empty tag_ids array are required' });
     }
 
     const records = tag_ids.map((tag_id: string) => ({
@@ -2487,11 +2506,11 @@ app.post('/api/user-interests/bulk', async (req, res) => {
 
     const { data, error } = await supabase
         .from('user_interest')
-        .insert(records)
+        .upsert(records, { onConflict: 'user_id,tag_id' })
         .select();
 
     if (error) return res.status(500).json(error);
-    res.status(201).json({ message: 'Bulk interests saved successfully', count: data.length });
+    res.status(201).json({ message: 'Bulk interests saved successfully', count: data?.length || 0 });
 });
 
 // 7. GET USERS INTERESTED IN A TAG
