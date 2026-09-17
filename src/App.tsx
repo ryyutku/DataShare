@@ -12,6 +12,9 @@ export default function App() {
     return (localStorage.getItem('reddit_current_page') as PageType) || 'home';
   });
 
+  const [searchFilter, setSearchFilter] = useState<string>('');
+
+
   const [currentCommunitySlug, setCurrentCommunitySlug] = useState<string>(() => {
     return localStorage.getItem('reddit_current_slug') || '';
   });
@@ -26,13 +29,17 @@ export default function App() {
     }
     window.scrollTo(0, 0);
   };
+  const [searchFilter, setSearchFilter] = useState<string>('');
 
   return (
     <>
-      <Navbar onNavigate={handleNavigate} />
+      <Navbar
+        onNavigate={handleNavigate}
+        onSearch={(query) => setSearchFilter(query)}
+      />
 
       {currentPage === 'home' && (
-        <HomePage onNavigate={handleNavigate} />
+        <HomePage searchFilter={searchFilter} onClearSearch={() => setSearchFilter('')} onNavigate={handleNavigate} />
       )}
 
       {currentPage === 'profile' && (

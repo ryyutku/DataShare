@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // 1. Initialize Supabase directly inside server.ts using process.env
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('\n❌ Error: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY missing in .env!\n');
@@ -86,7 +86,25 @@ const swaggerDocument = {
                                 properties: {
                                     title: { type: 'string', example: 'Updated Title' },
                                     description: { type: 'string', example: 'Updated Description' },
-                                    goal_count: { type: 'integer', example: 200 }
+                                    goal_count: { type: 'integer', example: 200 },
+                                    schema: {
+                                        type: 'object',
+                                        example: {
+                                            make: 'string',
+                                            price: 'number',
+                                            mileage: 'number',
+                                            city: 'string'
+                                        }
+                                    },
+                                    example_row: {
+                                        type: 'object',
+                                        example: {
+                                            make: 'Honda',
+                                            price: 18000,
+                                            mileage: 35000,
+                                            city: 'New York'
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -108,7 +126,7 @@ const swaggerDocument = {
         //post tag start
         '/api/post-tags/by-post': {
             get: {
-                tags: ['7. Post Tags (postTagService)'],
+                tags: ['2. Post Tags (postTagService)'],
                 summary: 'getTagsForPost() - Get all tags for a post',
                 description: 'Returns all tag badges attached to a specific post ID.',
                 parameters: [
@@ -129,7 +147,7 @@ const swaggerDocument = {
 
         '/api/post-tags/by-tag': {
             get: {
-                tags: ['7. Post Tags (postTagService)'],
+                tags: ['2. Post Tags (postTagService)'],
                 summary: 'getPostsByTag() - Get all posts with a specific tag',
                 description: 'Finds all dataset posts tagged with a specific tag UUID (e.g. clicking #machine-learning).',
                 parameters: [
@@ -150,7 +168,7 @@ const swaggerDocument = {
 
         '/api/post-tags/attach': {
             post: {
-                tags: ['7. Post Tags (postTagService)'],
+                tags: ['2. Post Tags (postTagService)'],
                 summary: 'attachTagToPost() - Attach a single tag to a post',
                 requestBody: {
                     required: true,
@@ -176,7 +194,7 @@ const swaggerDocument = {
 
         '/api/post-tags/bulk-attach': {
             post: {
-                tags: ['7. Post Tags (postTagService)'],
+                tags: ['2. Post Tags (postTagService)'],
                 summary: 'attachMultipleTagsToPost() - Bulk attach tags to a post',
                 requestBody: {
                     required: true,
@@ -206,7 +224,7 @@ const swaggerDocument = {
 
         '/api/post-tags/remove': {
             delete: {
-                tags: ['7. Post Tags (postTagService)'],
+                tags: ['2. Post Tags (postTagService)'],
                 summary: 'removeTagFromPost() - Remove a tag from a post',
                 parameters: [
                     {
@@ -234,7 +252,7 @@ const swaggerDocument = {
         //community apis start
         '/api/communities': {
             get: {
-                tags: ['2. Communities (communityService)'],
+                tags: ['3. Communities (communityService)'],
                 summary: 'getCommunities() - Fetch all communities',
                 description: 'Returns all communities sorted alphabetically by name.',
                 responses: {
@@ -243,7 +261,7 @@ const swaggerDocument = {
                 }
             },
             post: {
-                tags: ['2. Communities (communityService)'],
+                tags: ['3. Communities (communityService)'],
                 summary: 'createCommunity() - Create a new community',
                 description: 'Registers a new community and auto-formats the slug (e.g. "Web Dev" -> "web-dev").',
                 requestBody: {
@@ -272,7 +290,7 @@ const swaggerDocument = {
 
         '/api/communities/slug/{slug}': {
             get: {
-                tags: ['2. Communities (communityService)'],
+                tags: ['3. Communities (communityService)'],
                 summary: 'getCommunityBySlug() - Fetch single community by slug',
                 description: 'Retrieves community details using its URL slug (e.g. "webdev" or "r/webdev").',
                 parameters: [
@@ -293,7 +311,7 @@ const swaggerDocument = {
 
         '/api/communities/search': {
             get: {
-                tags: ['2. Communities (communityService)'],
+                tags: ['3. Communities (communityService)'],
                 summary: 'searchCommunities() - Search communities by name or slug',
                 description: 'Searches for communities matching a partial query string.',
                 parameters: [
@@ -313,7 +331,7 @@ const swaggerDocument = {
 
         '/api/communities/check-slug': {
             get: {
-                tags: ['2. Communities (communityService)'],
+                tags: ['3. Communities (communityService)'],
                 summary: 'isSlugAvailable() - Check if a slug is available',
                 description: 'Returns whether a community slug is taken or free to register.',
                 parameters: [
@@ -335,7 +353,7 @@ const swaggerDocument = {
         //community tags apis start
         '/api/community-tags/by-community': {
             get: {
-                tags: ['7. Community Tags (communityTagService)'],
+                tags: ['4. Community Tags (communityTagService)'],
                 summary: 'getTagsForCommunity() - Get all tags linked to a community',
                 description: 'Retrieves all global tags associated with a specific community UUID.',
                 parameters: [
@@ -356,7 +374,7 @@ const swaggerDocument = {
 
         '/api/community-tags/by-tag': {
             get: {
-                tags: ['7. Community Tags (communityTagService)'],
+                tags: ['4. Community Tags (communityTagService)'],
                 summary: 'getCommunitiesByTag() - Find communities that use a tag',
                 description: 'Retrieves all communities associated with a specific tag UUID.',
                 parameters: [
@@ -377,7 +395,7 @@ const swaggerDocument = {
 
         '/api/community-tags/link': {
             post: {
-                tags: ['7. Community Tags (communityTagService)'],
+                tags: ['4. Community Tags (communityTagService)'],
                 summary: 'linkTagToCommunity() - Link a tag to a community',
                 requestBody: {
                     required: true,
@@ -403,7 +421,7 @@ const swaggerDocument = {
 
         '/api/community-tags/bulk-link': {
             post: {
-                tags: ['7. Community Tags (communityTagService)'],
+                tags: ['4. Community Tags (communityTagService)'],
                 summary: 'linkMultipleTagsToCommunity() - Bulk link tags to a community',
                 requestBody: {
                     required: true,
@@ -433,7 +451,7 @@ const swaggerDocument = {
 
         '/api/community-tags/unlink': {
             delete: {
-                tags: ['7. Community Tags (communityTagService)'],
+                tags: ['4. Community Tags (communityTagService)'],
                 summary: 'unlinkTagFromCommunity() - Unlink a tag from a community',
                 parameters: [
                     {
@@ -460,7 +478,7 @@ const swaggerDocument = {
         //comment apis start    
         '/api/comments': {
             get: {
-                tags: ['3. Comments (commentService)'],
+                tags: ['5. Comments (commentService)'],
                 summary: 'getCommentsByPostId() - Fetch all comments for a post',
                 description: 'Returns all comments linked to a specific post_id in chronological order.',
                 parameters: [
@@ -478,7 +496,7 @@ const swaggerDocument = {
                 }
             },
             post: {
-                tags: ['3. Comments (commentService)'],
+                tags: ['5. Comments (commentService)'],
                 summary: 'addComment() - Create a comment or nested reply',
                 description: 'Creates a top-level comment (parent_comment_id: null) or a reply to an existing comment (pass parent_comment_id).',
                 requestBody: {
@@ -512,7 +530,7 @@ const swaggerDocument = {
 
         '/api/comments/count': {
             get: {
-                tags: ['3. Comments (commentService)'],
+                tags: ['5. Comments (commentService)'],
                 summary: 'getCommentCount() - Get total comments count for a post',
                 parameters: [
                     {
@@ -531,7 +549,7 @@ const swaggerDocument = {
 
         '/api/comments/{id}': {
             delete: {
-                tags: ['3. Comments (commentService)'],
+                tags: ['5. Comments (commentService)'],
                 summary: 'deleteComment() - Delete a comment by ID',
                 parameters: [
                     {
@@ -643,7 +661,7 @@ const swaggerDocument = {
         //moderate server start
         '/api/moderators': {
             get: {
-                tags: ['8. Moderators (moderatorService)'],
+                tags: ['7. Moderators (moderatorService)'],
                 summary: 'getCommunityModerators() - Get all moderators for a community',
                 description: 'Returns all assigned moderators and their roles for a specific community.',
                 parameters: [
@@ -661,7 +679,7 @@ const swaggerDocument = {
                 }
             },
             post: {
-                tags: ['8. Moderators (moderatorService)'],
+                tags: ['7. Moderators (moderatorService)'],
                 summary: 'addModerator() - Add a user as moderator',
                 description: 'Assigns a moderator role (owner, moderator, admin) to a user in a community.',
                 requestBody: {
@@ -686,7 +704,7 @@ const swaggerDocument = {
                 }
             },
             delete: {
-                tags: ['8. Moderators (moderatorService)'],
+                tags: ['7. Moderators (moderatorService)'],
                 summary: 'removeModerator() - Remove a moderator from a community',
                 parameters: [
                     {
@@ -711,7 +729,7 @@ const swaggerDocument = {
 
         '/api/moderators/check': {
             get: {
-                tags: ['8. Moderators (moderatorService)'],
+                tags: ['7. Moderators (moderatorService)'],
                 summary: 'checkUserModStatus() - Check if user is a moderator',
                 description: 'Returns { isModerator: boolean, role: string | null } for permission checks.',
                 parameters: [
@@ -736,7 +754,7 @@ const swaggerDocument = {
 
         '/api/moderators/role': {
             put: {
-                tags: ['8. Moderators (moderatorService)'],
+                tags: ['7. Moderators (moderatorService)'],
                 summary: 'updateModeratorRole() - Change moderator role',
                 description: 'Promote or change role (e.g. from moderator to owner).',
                 requestBody: {
@@ -764,7 +782,7 @@ const swaggerDocument = {
 
         '/api/moderators/by-user': {
             get: {
-                tags: ['8. Moderators (moderatorService)'],
+                tags: ['7. Moderators (moderatorService)'],
                 summary: 'getCommunitiesModeratedByUser() - Get communities user moderates',
                 description: 'Returns an array of community IDs where this user holds a moderator role.',
                 parameters: [
@@ -786,7 +804,7 @@ const swaggerDocument = {
         //submissionrowservice start
         '/api/submission-rows': {
             get: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'getDatasetRows() - Get active rows for a dataset',
                 description: 'Returns all current, non-deleted dataset rows for a specific post_id (supports pagination with limit & offset).',
                 parameters: [
@@ -818,7 +836,7 @@ const swaggerDocument = {
                 }
             },
             post: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'submitDataRow() - Contribute a single row to dataset',
                 description: 'Submits a new data object matching the post schema. Automatically sets is_current = true and is_deleted = false.',
                 requestBody: {
@@ -855,7 +873,7 @@ const swaggerDocument = {
 
         '/api/submission-rows/bulk': {
             post: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'bulkSubmitRows() - Bulk upload dataset rows (CSV/JSON)',
                 description: 'Uploads an array of multiple data rows at once.',
                 requestBody: {
@@ -890,7 +908,7 @@ const swaggerDocument = {
 
         '/api/submission-rows/revise': {
             put: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'editDataRow() - Revise a row (Git-style versioning)',
                 description: 'Marks the old row as is_current = false, and inserts a new version pointing to it via parent_row_id.',
                 requestBody: {
@@ -927,7 +945,7 @@ const swaggerDocument = {
 
         '/api/submission-rows/count': {
             get: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'getActiveRowCount() - Get total active rows count',
                 description: 'Returns the count of active rows to calculate progress towards the goal_count.',
                 parameters: [
@@ -947,7 +965,7 @@ const swaggerDocument = {
 
         '/api/submission-rows/history/{id}': {
             get: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'getRowHistory() - Get audit/revision history for a row',
                 description: 'Retrieves all historical edits and revisions linked to a row ID.',
                 parameters: [
@@ -967,7 +985,7 @@ const swaggerDocument = {
 
         '/api/submission-rows/{id}': {
             delete: {
-                tags: ['4. Submission Rows (submissionRowService)'],
+                tags: ['8. Submission Rows (submissionRowService)'],
                 summary: 'softDeleteRow() - Soft delete a row',
                 description: 'Marks is_deleted = true and is_current = false without destroying audit history.',
                 parameters: [
@@ -990,7 +1008,7 @@ const swaggerDocument = {
         //upvote start
         '/api/upvotes/toggle': {
             post: {
-                tags: ['5. Upvotes (voteService)'],
+                tags: ['9. Upvotes (voteService)'],
                 summary: 'toggleUpvote() - Toggle upvote on a post',
                 description: 'Toggles upvote status: if user has not upvoted, adds an upvote. If already upvoted, removes it.',
                 requestBody: {
@@ -1017,7 +1035,7 @@ const swaggerDocument = {
 
         '/api/upvotes/check': {
             get: {
-                tags: ['5. Upvotes (voteService)'],
+                tags: ['9. Upvotes (voteService)'],
                 summary: 'hasUserUpvoted() - Check if user upvoted a post',
                 description: 'Returns boolean to determine if the upvote arrow should be highlighted in orange.',
                 parameters: [
@@ -1045,7 +1063,7 @@ const swaggerDocument = {
 
         '/api/upvotes/count': {
             get: {
-                tags: ['5. Upvotes (voteService)'],
+                tags: ['9. Upvotes (voteService)'],
                 summary: 'getPostUpvoteCount() - Get total upvotes for a post',
                 description: 'Counts the total upvote records for a specific post_id.',
                 parameters: [
@@ -1066,7 +1084,7 @@ const swaggerDocument = {
 
         '/api/upvotes/user-posts': {
             get: {
-                tags: ['5. Upvotes (voteService)'],
+                tags: ['9. Upvotes (voteService)'],
                 summary: 'getUserUpvotedPostIds() - Get all post IDs upvoted by user',
                 description: 'Returns an array of post UUIDs upvoted by a specific user (useful for a User Profile "Upvoted" tab).',
                 parameters: [
@@ -1091,7 +1109,7 @@ const swaggerDocument = {
         //user interest start
         '/api/user-interests': {
             get: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'getUserInterests() - Get all tags followed by user',
                 description: 'Returns all tags/topics that a specific user has followed.',
                 parameters: [
@@ -1112,7 +1130,7 @@ const swaggerDocument = {
 
         '/api/user-interests/check': {
             get: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'isUserInterestedInTag() - Check if user follows a tag',
                 description: 'Returns boolean to determine whether to show "Follow" or "Following" button.',
                 parameters: [
@@ -1137,7 +1155,7 @@ const swaggerDocument = {
 
         '/api/user-interests/toggle': {
             post: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'toggleInterest() - Toggle follow/unfollow on a tag',
                 description: 'Follows tag if not following, or unfollows if already following.',
                 requestBody: {
@@ -1164,7 +1182,7 @@ const swaggerDocument = {
 
         '/api/user-interests/add': {
             post: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'addInterest() - Follow a tag',
                 requestBody: {
                     required: true,
@@ -1189,7 +1207,7 @@ const swaggerDocument = {
 
         '/api/user-interests/remove': {
             delete: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'removeInterest() - Unfollow a tag',
                 parameters: [
                     {
@@ -1213,7 +1231,7 @@ const swaggerDocument = {
 
         '/api/user-interests/bulk': {
             post: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'setBulkInterests() - Bulk follow tags (Onboarding)',
                 description: 'Follow multiple topics at once (e.g. initial onboarding flow).',
                 requestBody: {
@@ -1243,7 +1261,7 @@ const swaggerDocument = {
 
         '/api/user-interests/users-by-tag': {
             get: {
-                tags: ['9. User Interests (userInterestService)'],
+                tags: ['10. User Interests (userInterestService)'],
                 summary: 'getUsersInterestedInTag() - Get all users following a tag',
                 description: 'Returns an array of user UUIDs who follow a specific tag.',
                 parameters: [
@@ -1265,7 +1283,7 @@ const swaggerDocument = {
         //user service start
         '/api/users/signup': {
             post: {
-                tags: ['0. Users & Auth (userService)'],
+                tags: ['11. Users & Auth (userService)'],
                 summary: 'signUpUser() - Register new account',
                 description: 'Creates an account in Supabase Auth AND creates a row in the public "user" table.',
                 requestBody: {
@@ -1293,7 +1311,7 @@ const swaggerDocument = {
 
         '/api/users/signin': {
             post: {
-                tags: ['0. Users & Auth (userService)'],
+                tags: ['11. Users & Auth (userService)'],
                 summary: 'signInUser() - Log in with email & password',
                 description: 'Authenticates credentials and returns session tokens (JWT).',
                 requestBody: {
@@ -1320,7 +1338,7 @@ const swaggerDocument = {
 
         '/api/users/signout': {
             post: {
-                tags: ['0. Users & Auth (userService)'],
+                tags: ['11. Users & Auth (userService)'],
                 summary: 'signOutUser() - Log out',
                 responses: {
                     200: { description: 'Logged out successfully' }
@@ -1330,7 +1348,7 @@ const swaggerDocument = {
 
         '/api/users/check-username': {
             get: {
-                tags: ['0. Users & Auth (userService)'],
+                tags: ['11. Users & Auth (userService)'],
                 summary: 'isUsernameAvailable() - Check username availability',
                 description: 'Returns whether a username is free or taken for real-time validation.',
                 parameters: [
@@ -1350,7 +1368,7 @@ const swaggerDocument = {
 
         '/api/users/username/{username}': {
             get: {
-                tags: ['0. Users & Auth (userService)'],
+                tags: ['11. Users & Auth (userService)'],
                 summary: 'getUserByUsername() - Fetch profile by username',
                 description: 'Retrieves public user details using their handle (e.g. browsing /u/developer).',
                 parameters: [
@@ -1370,7 +1388,7 @@ const swaggerDocument = {
 
         '/api/users/{id}': {
             get: {
-                tags: ['0. Users & Auth (userService)'],
+                tags: ['11. Users & Auth (userService)'],
                 summary: 'getUserById() - Fetch user by UUID',
                 description: 'Retrieves public user details by their unique ID.',
                 parameters: [
@@ -1389,6 +1407,26 @@ const swaggerDocument = {
         },
 
         //user service end
+
+        '/api/search': {
+            get: {
+                tags: ['Global Search'],
+                summary: 'searchAll() - Search across both Communities and Posts',
+                description: 'Searches community names/slugs and post titles/descriptions using case-insensitive partial matching.',
+                parameters: [
+                    {
+                        name: 'q',
+                        in: 'query',
+                        required: true,
+                        schema: { type: 'string', example: 'car' },
+                        description: 'The search keyword'
+                    }
+                ],
+                responses: {
+                    200: { description: 'Returns { communities: [...], posts: [...] }' }
+                }
+            }
+        },
     }
 };
 
@@ -2619,6 +2657,46 @@ app.get('/api/users/:id', async (req, res) => {
     if (error) return res.status(404).json({ error: 'User not found', details: error.message });
     res.json(data);
 });
+
+// GLOBAL SEARCH ENDPOINT (Communities + Posts)
+app.get('/api/search', async (req, res) => {
+    const q = (req.query.q as string || '').trim();
+    if (!q) {
+        return res.json({ communities: [], posts: [] });
+    }
+
+    // 1. Search Communities (Matches name or slug)
+    const { data: communities, error: commError } = await supabase
+        .from('community')
+        .select('id, name, slug, description')
+        .or(`name.ilike.%${q}%,slug.ilike.%${q}%,description.ilike.%${q}%`)
+        .limit(5);
+
+    if (commError) return res.status(500).json(commError);
+
+    // 2. Search Posts (Matches title or description)
+    const { data: posts, error: postError } = await supabase
+        .from('post')
+        .select(`
+      id,
+      title,
+      description,
+      community:community!post_community_id_fkey (slug, name),
+      author:user!post_author_id_fkey (username)
+    `)
+        .or(`title.ilike.%${q}%,description.ilike.%${q}%`)
+        .limit(10);
+
+    if (postError) return res.status(500).json(postError);
+
+    res.json({
+        query: q,
+        communities: communities || [],
+        posts: posts || [],
+    });
+});
+
+
 // 5. Start Server
 const PORT = 5000;
 app.listen(PORT, () => {
