@@ -52,12 +52,23 @@ export const HomePage: React.FC<HomePageProps> = ({ searchFilter, onClearSearch,
   }, []);
 
 
-  
+
   return (
     <div className="app-layout">
       <LeftSidebar onNavigate={onNavigate}/>
 
       <main className="main-feed">
+        {/* <div className="feed-controls">
+          {filterButtons.map((filter) => (
+            <button
+              key={filter}
+              className={`filter-btn ${activeFilter === filter ? 'active' : ''}`}
+              onClick={() => setActiveFilter(filter)}
+            >
+              {filter}
+            </button>
+          ))}
+        </div> */}
 
         {loading && <div style={{ color: 'var(--text-muted)', padding: '24px', textAlign: 'center' }}>Loading posts...</div>}
         {error && <div style={{ color: '#ff4500', padding: '24px', textAlign: 'center' }}>Error: {error}</div>}
@@ -72,6 +83,7 @@ export const HomePage: React.FC<HomePageProps> = ({ searchFilter, onClearSearch,
           posts.map((post) => (
             <PostCard
               key={post.id}
+              id={post.id}
               community={post.community?.name || post.community?.slug || 'r/general'}
               author={post.author?.username || 'anonymous'}
               timeAgo={new Date(post.created_at).toLocaleDateString()}
@@ -80,6 +92,7 @@ export const HomePage: React.FC<HomePageProps> = ({ searchFilter, onClearSearch,
               imageUrl={undefined}
               initialVotes={post.upvotes_count ?? 0}
               commentsCount={post.comments_count ?? 0}
+              onOpen={(postId) => onNavigate && onNavigate('post-detail', postId)}
             />
           ))}
       </main>

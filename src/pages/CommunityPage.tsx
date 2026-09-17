@@ -1,35 +1,38 @@
 // src/pages/CommunityPage.tsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Shield, MoreHorizontal, Bell, Trash2, Calendar, Globe, Mail, Users } from 'lucide-react';
+import { 
+  Plus, 
+  Calendar, 
+  Globe, 
+  Mail, 
+  Users,
+  Check
+} from 'lucide-react';
 import { 
   getCommunityBySlug, 
   getCommunityUserStatus, 
   getCommunityModerators,
   joinCommunity, 
   leaveCommunity, 
-  deleteCommunity, 
   type Community 
 } from '../services/communityService';
-import { supabase } from '../services/supabaseclient';
+import { getPosts, type Post } from '../services/postService';
 import { LeftSidebar } from '../components/navigation/LeftSidebar';
+import { PostCard } from '../components/ui/PostCard';
 import { type PageType } from '../components/navigation/Navbar';
 
 interface CommunityPageProps {
   slug: string;
-  onNavigate: (page: PageType, slug?: string) => void;
+  onNavigate: (page: PageType, targetIdOrSlug?: string) => void;
 }
 
 export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }) => {
   const [community, setCommunity] = useState<Community | null>(null);
-  const [isModerator, setIsModerator] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [moderators, setModerators] = useState<any[]>([]);
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showOverflow, setShowOverflow] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [activeSort, setActiveSort] = useState<'best' | 'hot' | 'new' | 'top'>('best');
 
   useEffect(() => {
@@ -50,23 +53,17 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
 
         setCommunity(data);
 
-        // Fetch User Membership and Roles
+        // Fetch User Membership and Ownership status
         const status = await getCommunityUserStatus(data.id, data.created_by);
         setIsMember(status.isMember);
-        setIsModerator(status.isModerator);
         setIsOwner(status.isOwner);
 
         // Fetch Moderators
         const mods = await getCommunityModerators(data.id);
         setModerators(mods);
 
-        // Fetch Community Posts
-        const { data: communityPosts } = await supabase
-          .from('post')
-          .select('id, title, description, created_at, author_id')
-          .eq('community_id', data.id)
-          .order('created_at', { ascending: false });
-
+        // Fetch Community Posts with author & relations
+        const communityPosts = await getPosts(data.id);
         setPosts(communityPosts || []);
       } catch (err) {
         console.error('Error loading community:', err);
@@ -78,6 +75,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
     loadCommunityData();
   }, [slug]);
 
+  // Handle Join / Leave Community Toggle (for non-owners only)
   const handleToggleJoin = async () => {
     if (!community) return;
     try {
@@ -88,25 +86,10 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
         await joinCommunity(community.id);
         setIsMember(true);
       }
+      // Broadcast event so LeftSidebar updates "Joined Communities" in real-time
       window.dispatchEvent(new Event('community-updated'));
     } catch (err: any) {
-      alert(err.message || 'Failed to update membership');
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!community) return;
-    try {
-      setDeleting(true);
-      await deleteCommunity(community.id);
-      window.dispatchEvent(new Event('community-updated'));
-      alert(`r/${community.name} has been deleted.`);
-      onNavigate('home');
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete community');
-    } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(false);
+      alert(err.message || 'Failed to update membership. Make sure you are logged in.');
     }
   };
 
@@ -128,12 +111,12 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
         <main className="main-feed" style={{ textAlign: 'center', padding: '48px' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#fff' }}>Community not found</h2>
           <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-            We could not find r/{slug}. It may have been deleted.
+            We could not find r/{slug}.
           </p>
           <button 
             onClick={() => onNavigate('home')} 
             className="btn-action"
-            style={{ marginTop: '16px', backgroundColor: '#FF4500', color: '#fff' }}
+            style={{ marginTop: '16px', backgroundColor: '#FF4500', color: '#fff', padding: '8px 20px', borderRadius: '999px', cursor: 'pointer' }}
           >
             Return Home
           </button>
@@ -174,75 +157,39 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
                 type="button"
                 onClick={() => onNavigate('create-post')}
                 className="btn-action"
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Plus style={{ width: '16px', height: '16px' }} />
                 <span>Create Post</span>
               </button>
 
-              {/* Mod Tools (Owner/Mod) vs Join (Regular user) */}
-              {isModerator ? (
-                <button
-                  type="button"
-                  className="btn-action"
-                  style={{ cursor: 'pointer', backgroundColor: '#272729', color: '#34d399' }}
-                >
-                  <Shield style={{ width: '16px', height: '16px' }} />
-                  <span>Mod Tools</span>
-                </button>
-              ) : (
+              {/* ONLY NON-OWNERS CAN SEE AND CLICK THE JOIN / JOINED BUTTON */}
+              {!isOwner && (
                 <button
                   type="button"
                   onClick={handleToggleJoin}
                   className="btn-action"
                   style={{
                     cursor: 'pointer',
-                    backgroundColor: isMember ? '#272729' : '#fff',
-                    color: isMember ? '#D7DADC' : '#000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: isMember ? '#272729' : '#FF4500',
+                    color: isMember ? '#D7DADC' : '#fff',
+                    border: isMember ? '1px solid #343536' : 'none',
+                    fontWeight: 600,
                   }}
                 >
-                  {isMember ? 'Joined' : 'Join'}
+                  {isMember ? (
+                    <>
+                      <Check style={{ width: '14px', height: '14px', color: '#34d399' }} />
+                      <span>Joined</span>
+                    </>
+                  ) : (
+                    <span>+ Join</span>
+                  )}
                 </button>
               )}
-
-              {/* Overflow Menu with Delete */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowOverflow(!showOverflow)}
-                  className="btn-action"
-                  style={{ padding: '8px', borderRadius: '50%', cursor: 'pointer' }}
-                >
-                  <MoreHorizontal style={{ width: '16px', height: '16px' }} />
-                </button>
-
-                {showOverflow && (
-                  <div style={{ position: 'absolute', right: 0, marginTop: '8px', width: '180px', backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '12px', padding: '6px 0', zIndex: 30, boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                    {isOwner ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowOverflow(false);
-                          setShowDeleteConfirm(true);
-                        }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
-                      >
-                        <Trash2 style={{ width: '14px', height: '14px' }} />
-                        <span>Delete Community</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowOverflow(false)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', color: '#D7DADC', fontSize: '0.8rem', cursor: 'pointer', textAlign: 'left' }}
-                      >
-                        <Bell style={{ width: '14px', height: '14px' }} />
-                        <span>Mute Community</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -270,42 +217,51 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           ))}
         </div>
 
-        {/* Empty Posts State */}
+        {/* Posts Feed */}
         {posts.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', textAlign: 'center' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', margin: '0 0 6px 0' }}>
               This community doesn't have any posts yet
             </h2>
             <p style={{ fontSize: '0.85rem', color: '#818384', margin: '0 0 20px 0' }}>
-              Make one and get this feed started.
+              Make one and get this dataset feed started.
             </p>
             <button
               type="button"
               onClick={() => onNavigate('create-post')}
               className="btn-action"
-              style={{ backgroundColor: '#FF4500', color: '#fff', padding: '10px 24px' }}
+              style={{ backgroundColor: '#FF4500', color: '#fff', padding: '10px 24px', borderRadius: '999px' }}
             >
               Create Post
             </button>
           </div>
         ) : (
           posts.map((post) => (
-            <div key={post.id} style={{ padding: '16px', backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fff', margin: '0 0 6px 0' }}>{post.title}</h3>
-              <p style={{ fontSize: '0.85rem', color: '#D7DADC', margin: 0 }}>{post.description}</p>
-            </div>
+            <PostCard
+              key={post.id}
+              id={post.id}
+              community={community.slug}
+              author={post.author?.username || 'anonymous'}
+              timeAgo={new Date(post.created_at).toLocaleDateString()}
+              title={post.title}
+              bodyText={post.description}
+              imageUrl={undefined}
+              initialVotes={post.upvotes_count ?? 0}
+              commentsCount={post.comments_count ?? 0}
+              onOpen={(postId) => onNavigate('post-detail', postId)}
+            />
           ))
         )}
       </main>
 
-      {/* Right Sidebar: About, Rules, Moderators */}
+      {/* Right Sidebar */}
       <aside className="right-sidebar">
         <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#818384', margin: '0 0 10px 0' }}>
             About Community
           </h2>
           <p style={{ fontSize: '0.85rem', color: '#D7DADC', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-            {community.description || 'Welcome to this community! Follow the rules and join discussions.'}
+            {community.description || 'Welcome to this community! Follow the rules and participate in datasets.'}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '12px', borderTop: '1px solid #343536', fontSize: '0.8rem', color: '#818384' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -326,6 +282,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           </h2>
           <ol style={{ fontSize: '0.8rem', color: '#D7DADC', paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <li>Respect others and be civil</li>
+            <li>Submit genuine, verifiable data</li>
             <li>No spam or self-promotion</li>
             <li>Follow platform dataset standards</li>
           </ol>
@@ -343,42 +300,13 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
             type="button"
             className="btn-action"
             style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => alert(`Messaging u/${community.creator?.username || 'Moderator'}`)}
           >
             <Mail style={{ width: '14px', height: '14px' }} />
             <span>Message Mods</span>
           </button>
         </div>
       </aside>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 60 }}>
-          <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '24px', maxWidth: '380px', width: '100%', color: '#D7DADC' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff', margin: '0 0 8px 0' }}>Delete Community?</h3>
-            <p style={{ fontSize: '0.85rem', color: '#818384', lineHeight: 1.4, margin: '0 0 20px 0' }}>
-              Are you sure you want to delete <strong style={{ color: '#fff' }}>r/{community.name}</strong>? This action cannot be undone.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="btn-action"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn-action"
-                style={{ backgroundColor: '#ef4444', color: '#fff' }}
-              >
-                {deleting ? 'Deleting...' : 'Yes, Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

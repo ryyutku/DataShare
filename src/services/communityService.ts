@@ -24,7 +24,12 @@ export interface CreateCommunityInput {
   name: string;
   slug?: string;
   description?: string;
-  topics?: string[]; // Array of tag names e.g. ["Technology", "Gaming"]
+  topics?: string[];
+}
+
+export interface CategorizedCommunities {
+  created: Community[];
+  joined: Community[];
 }
 
 // 1. Fetch all communities
@@ -38,7 +43,7 @@ export async function getCommunities(): Promise<Community[]> {
       description,
       created_by,
       created_at,
-      creator:user!created_by (
+      creator:user!community_created_by_fkey (
         id,
         username,
         email
@@ -48,32 +53,57 @@ export async function getCommunities(): Promise<Community[]> {
 
   if (error) {
     console.error('Error fetching communities:', error.message);
-    throw error;
+    return [];
   }
 
   return (data as unknown as Community[]) || [];
 }
 
-// 2. Fetch single community by slug
-export async function getCommunityBySlug(slug: string): Promise<Community | null> {
-  if (!slug) return null;
+// 2. Resilient Community Fetcher (matches by slug, name, or UUID id)
+export async function getCommunityBySlug(slugOrId: string): Promise<Community | null> {
+  if (!slugOrId) return null;
 
-  const cleanSlug = slug.trim().toLowerCase().replace(/^r\//, '');
+  const raw = slugOrId.trim();
+  const cleanSlug = raw.toLowerCase().replace(/^r\//, '');
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
 
   try {
-    // 1. Fetch community by slug or by name as fallback
-    const { data: communityData, error: communityError } = await supabase
-      .from('community')
-      .select('*')
-      .or(`slug.eq.${cleanSlug},name.ilike.${cleanSlug}`)
-      .maybeSingle();
+    let communityData: any = null;
 
-    if (communityError || !communityData) {
-      console.warn(`Community r/${cleanSlug} not found:`, communityError?.message);
+    if (isUUID) {
+      const { data } = await supabase
+        .from('community')
+        .select('*')
+        .eq('id', raw)
+        .maybeSingle();
+      communityData = data;
+    }
+
+    if (!communityData) {
+      const { data } = await supabase
+        .from('community')
+        .select('*')
+        .eq('slug', cleanSlug)
+        .maybeSingle();
+      communityData = data;
+    }
+
+    // Fallback: match by name
+    if (!communityData) {
+      const { data } = await supabase
+        .from('community')
+        .select('*')
+        .ilike('name', cleanSlug)
+        .maybeSingle();
+      communityData = data;
+    }
+
+    if (!communityData) {
+      console.warn(`Community "${slugOrId}" not found`);
       return null;
     }
 
-    // 2. Fetch creator username safely from "user" table
+    // Fetch creator safely from "user" table
     let creatorInfo = { id: communityData.created_by, username: 'Moderator', email: '' };
     if (communityData.created_by) {
       const { data: userData } = await supabase
@@ -92,12 +122,12 @@ export async function getCommunityBySlug(slug: string): Promise<Community | null
       creator: creatorInfo,
     } as Community;
   } catch (err) {
-    console.error(`Unexpected error fetching r/${cleanSlug}:`, err);
+    console.error(`Error in getCommunityBySlug:`, err);
     return null;
   }
 }
 
-// 3. Create a brand new community (handles tags and moderator assignment)
+// 3. Create a brand new community
 export async function createCommunity(input: CreateCommunityInput): Promise<Community> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('You must be logged in to create a community.');
@@ -108,7 +138,6 @@ export async function createCommunity(input: CreateCommunityInput): Promise<Comm
     .replace(/^r\//, '')
     .replace(/[^a-z0-9_]/g, '-');
 
-  // A. Insert into community
   const { data: newCommunity, error: communityError } = await supabase
     .from('community')
     .insert([
@@ -129,54 +158,13 @@ export async function createCommunity(input: CreateCommunityInput): Promise<Comm
     throw new Error(communityError.message || 'Failed to create community');
   }
 
-  // B. Add creator to community_moderator table
-  await supabase.from('community_moderator').insert([
-    {
-      community_id: newCommunity.id,
-      user_id: user.id,
-      role: 'creator',
-    },
-  ]);
-
-  // C. Add creator to community_members table
+  // Add creator to community_members table
   await supabase.from('community_members').insert([
     {
       community_id: newCommunity.id,
       user_id: user.id,
     },
   ]);
-
-  // D. Link tags if provided
-  if (input.topics && input.topics.length > 0) {
-    for (const topicName of input.topics) {
-      const topicSlug = topicName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
-      // Find or insert tag
-      let { data: tagRecord } = await supabase
-        .from('tag')
-        .select('id')
-        .eq('slug', topicSlug)
-        .maybeSingle();
-
-      if (!tagRecord) {
-        const { data: createdTag } = await supabase
-          .from('tag')
-          .insert([{ name: topicName, slug: topicSlug, created_by: user.id }])
-          .select('id')
-          .single();
-        tagRecord = createdTag;
-      }
-
-      if (tagRecord) {
-        await supabase.from('community_tag').insert([
-          {
-            community_id: newCommunity.id,
-            tag_id: tagRecord.id,
-          },
-        ]);
-      }
-    }
-  }
 
   return newCommunity as Community;
 }
@@ -218,7 +206,6 @@ export async function getCommunityUserStatus(communityId: string, creatorId: str
 
   const isOwner = user.id === creatorId;
 
-  // Check if member
   const { data: memberRow } = await supabase
     .from('community_members')
     .select('id')
@@ -226,41 +213,30 @@ export async function getCommunityUserStatus(communityId: string, creatorId: str
     .eq('user_id', user.id)
     .maybeSingle();
 
-  // Check if moderator
-  const { data: modRow } = await supabase
-    .from('community_moderator')
-    .select('role')
-    .eq('community_id', communityId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
   return {
     isMember: !!memberRow || isOwner,
-    isModerator: !!modRow || isOwner,
+    isModerator: isOwner,
     isOwner,
   };
 }
 
-// 7. Get moderators list for community sidebar
+// 7. Get moderators list
 export async function getCommunityModerators(communityId: string) {
   const { data, error } = await supabase
-    .from('community_moderator')
+    .from('community')
     .select(`
-      role,
-      user:user (
+      created_by,
+      creator:user!community_created_by_fkey (
         id,
         username,
         email
       )
     `)
-    .eq('community_id', communityId);
+    .eq('id', communityId)
+    .maybeSingle();
 
-  if (error) {
-    console.error('Error fetching moderators:', error);
-    return [];
-  }
-
-  return data || [];
+  if (error || !data?.creator) return [];
+  return [{ role: 'owner', user: data.creator }];
 }
 
 // 8. Delete community (owner only)
@@ -280,40 +256,33 @@ export async function deleteCommunity(communityId: string): Promise<void> {
   }
 }
 
-// 9. Fetch communities joined/created by current user (for LeftSidebar)
+// 9. Fetch communities joined/created by current user
 export async function getUserCommunities(): Promise<Community[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
   try {
-    // 1. Always fetch communities created by the current user
-    const { data: createdCommunities, error: createdError } = await supabase
+    const { data: createdCommunities } = await supabase
       .from('community')
-      .select('id, name, slug, description, created_by, created_at')
+      .select('*')
       .eq('created_by', user.id);
 
-    if (createdError) {
-      console.error('Error fetching created communities:', createdError.message);
-    }
-
-    // 2. Fetch communities the user joined from community_members
-    let joinedCommunities: Community[] = [];
-    const { data: memberRows, error: memberError } = await supabase
+    const { data: memberRows } = await supabase
       .from('community_members')
       .select('community_id')
       .eq('user_id', user.id);
 
-    if (!memberError && memberRows && memberRows.length > 0) {
+    let joinedCommunities: Community[] = [];
+    if (memberRows && memberRows.length > 0) {
       const joinedIds = memberRows.map((m) => m.community_id);
       const { data: joinedData } = await supabase
         .from('community')
-        .select('id, name, slug, description, created_by, created_at')
+        .select('*')
         .in('id', joinedIds);
 
       joinedCommunities = (joinedData as Community[]) || [];
     }
 
-    // 3. Combine both lists and remove duplicates
     const combined = [...(createdCommunities || []), ...joinedCommunities];
     const uniqueMap = new Map<string, Community>();
     combined.forEach((c) => uniqueMap.set(c.id, c as Community));
@@ -325,24 +294,18 @@ export async function getUserCommunities(): Promise<Community[]> {
   }
 }
 
-export interface CategorizedCommunities {
-  created: Community[];
-  joined: Community[];
-}
-
+// 10. Fetch categorized communities for sidebar
 export async function getCategorizedUserCommunities(): Promise<CategorizedCommunities> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { created: [], joined: [] };
 
   try {
-    // 1. Communities created by user (Moderating / Your Communities)
     const { data: createdData } = await supabase
       .from('community')
       .select('*')
       .eq('created_by', user.id)
       .order('name', { ascending: true });
 
-    // 2. Communities joined by user from community_members table
     const { data: memberRows } = await supabase
       .from('community_members')
       .select('community_id')
@@ -352,12 +315,12 @@ export async function getCategorizedUserCommunities(): Promise<CategorizedCommun
 
     if (memberRows && memberRows.length > 0) {
       const joinedIds = memberRows.map((m) => m.community_id);
-      
+
       const { data: joinedList } = await supabase
         .from('community')
         .select('*')
         .in('id', joinedIds)
-        .neq('created_by', user.id) // Exclude owned so there are no duplicates
+        .neq('created_by', user.id)
         .order('name', { ascending: true });
 
       joinedData = (joinedList as Community[]) || [];

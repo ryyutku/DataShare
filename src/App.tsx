@@ -1,35 +1,26 @@
 // src/App.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navbar, type PageType } from './components/navigation/Navbar';
 import { HomePage } from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import { CreatePostPage } from './pages/CreatePostPage';
 import { CommunityPage } from './pages/CommunityPage';
+import { PostPage } from './pages/PostPage';
 
 export default function App() {
-  // Read initial values from localStorage so page stays after refresh
-  const [currentPage, setCurrentPage] = useState<PageType>(() => {
-    return (localStorage.getItem('reddit_current_page') as PageType) || 'home';
-  });
-
+  const [currentPage, setCurrentPage] = useState<PageType>('home');
   const [searchFilter, setSearchFilter] = useState<string>('');
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string | null>(null);
 
-
-  const [currentCommunitySlug, setCurrentCommunitySlug] = useState<string>(() => {
-    return localStorage.getItem('reddit_current_slug') || '';
-  });
-
-  const handleNavigate = (page: PageType, slug?: string) => {
-    setCurrentPage(page);
-    localStorage.setItem('reddit_current_page', page);
-
-    if (slug) {
-      setCurrentCommunitySlug(slug);
-      localStorage.setItem('reddit_current_slug', slug);
+  const handleNavigate = (page: PageType, targetIdOrSlug?: string) => {
+    if (page === 'post-detail' && targetIdOrSlug) {
+      setSelectedPostId(targetIdOrSlug);
+    } else if (page === 'community' && targetIdOrSlug) {
+      setSelectedCommunitySlug(targetIdOrSlug);
     }
-    window.scrollTo(0, 0);
+    setCurrentPage(page);
   };
-  const [searchFilter, setSearchFilter] = useState<string>('');
 
   return (
     <>
@@ -39,22 +30,25 @@ export default function App() {
       />
 
       {currentPage === 'home' && (
-        <HomePage searchFilter={searchFilter} onClearSearch={() => setSearchFilter('')} onNavigate={handleNavigate} />
+        <HomePage
+          searchFilter={searchFilter}
+          onClearSearch={() => setSearchFilter('')}
+          onNavigate={handleNavigate}
+        />
       )}
 
-      {currentPage === 'profile' && (
-        <ProfilePage onNavigate={handleNavigate} />
-      )}
+      {currentPage === 'profile' && <ProfilePage />}
 
       {currentPage === 'create-post' && (
         <CreatePostPage onNavigate={handleNavigate} />
       )}
 
-      {currentPage === 'community' && (
-        <CommunityPage 
-          slug={currentCommunitySlug} 
-          onNavigate={handleNavigate} 
-        />
+      {currentPage === 'community' && selectedCommunitySlug && (
+        <CommunityPage slug={selectedCommunitySlug} onNavigate={handleNavigate} />
+      )}
+
+      {currentPage === 'post-detail' && selectedPostId && (
+        <PostPage postId={selectedPostId} onNavigate={handleNavigate} />
       )}
     </>
   );

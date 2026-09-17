@@ -5,10 +5,10 @@ import { useAuth } from '../../context/AuthContext';
 import { LoginModal } from '../auth/LoginModal';
 import { searchAll, type SearchResults } from '../../services/searchService';
 
-export type PageType = 'home' | 'profile' | 'create-post' | 'community';
+export type PageType = 'home' | 'profile' | 'create-post' | 'community' | 'post-detail';
 
 interface NavbarProps {
-  onNavigate: (page: PageType, slug?: string) => void;
+  onNavigate: (page: PageType, targetIdOrSlug?: string) => void;
   onSearch?: (query: string) => void;
 }
 
@@ -123,7 +123,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
 
             <input
               type="text"
-              placeholder="Search communities, posts, topics..."
+              placeholder="Search communities, datasets, topics..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => results && setIsOpen(true)}
@@ -200,10 +200,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
                     Communities
                   </div>
                   {results.communities.map((c) => (
-                    <a
+                    <div
                       key={c.id}
-                      href={`/r/${c.slug}`}
-                      className="menu-item"
+                      onClick={() => {
+                        setIsOpen(false);
+                        onNavigate('community', c.slug);
+                      }}
+                      className="menu-item cursor-pointer"
                       style={{
                         padding: '8px 12px',
                         borderRadius: '8px',
@@ -217,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
                         {c.name}
                       </span>
-                    </a>
+                    </div>
                   ))}
                 </div>
               )}
@@ -228,10 +231,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
                     Posts & Datasets
                   </div>
                   {results.posts.map((p) => (
-                    <a
+                    <div
                       key={p.id}
-                      href={`/post/${p.id}`}
-                      className="menu-item"
+                      onClick={() => {
+                        setIsOpen(false);
+                        onNavigate('post-detail', p.id);
+                      }}
+                      className="menu-item cursor-pointer"
                       style={{
                         padding: '8px 12px',
                         borderRadius: '8px',
@@ -247,7 +253,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         in r/{p.community?.slug || 'general'}
                       </span>
-                    </a>
+                    </div>
                   ))}
                 </div>
               )}
@@ -298,7 +304,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
         )}
       </div>
 
-      {/* Passes isOpen explicitly */}
       <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />
     </header>
   );

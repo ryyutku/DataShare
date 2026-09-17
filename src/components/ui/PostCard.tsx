@@ -1,109 +1,90 @@
-import React, { useState } from 'react';
+// src/components/ui/PostCard.tsx
+import React from 'react';
 import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2 } from 'lucide-react';
 
 interface PostCardProps {
-    community: string;
-    author: string;
-    timeAgo: string;
-    title: string;
-    bodyText?: string;
-    imageUrl?: string;
-    initialVotes: number;
-    commentsCount: number;
+  id: string;
+  community: string;
+  author: string;
+  timeAgo: string;
+  title: string;
+  bodyText: string;
+  imageUrl?: string;
+  initialVotes?: number;
+  commentsCount?: number;
+  onOpen?: (postId: string) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
-    community,
-    author,
-    timeAgo,
-    title,
-    bodyText,
-    imageUrl,
-    initialVotes,
-    commentsCount,
+  id,
+  community,
+  author,
+  timeAgo,
+  title,
+  bodyText,
+  imageUrl,
+  initialVotes = 0,
+  commentsCount = 0,
+  onOpen,
 }) => {
-    const [votes, setVotes] = useState(initialVotes);
-    const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
+  return (
+    <article className="post-card bg-[#1A1A1B] border border-[#343536] rounded-xl mb-3 overflow-hidden hover:border-[#818384] transition">
+      <div className="p-3">
+        {/* Subreddit & Author header */}
+        <div className="flex items-center gap-2 text-xs text-[#818384] mb-2">
+          <span className="font-bold text-[#D7DADC] hover:underline cursor-pointer">
+            {community.startsWith('r/') ? community : `r/${community}`}
+          </span>
+          <span>•</span>
+          <span>Posted by u/{author}</span>
+          <span>•</span>
+          <span>{timeAgo}</span>
+        </div>
 
-    const handleVote = (type: 'up' | 'down') => {
-        if (userVote === type) {
-            setUserVote(null);
-            setVotes(type === 'up' ? votes - 1 : votes + 1);
-        } else {
-            const adjustment = userVote ? 2 : 1;
-            setUserVote(type);
-            setVotes(type === 'up' ? votes + adjustment : votes - adjustment);
-        }
-    };
+        {/* Title (clickable) */}
+        <h2
+          onClick={() => onOpen && onOpen(id)}
+          className="text-base font-bold text-[#D7DADC] cursor-pointer hover:underline mb-1"
+        >
+          {title}
+        </h2>
 
-    return (
-        <article className="post-card">
-            {/* Header */}
-            <div className="post-header">
-                <a href="#" className="community-name">
-                    {community}
-                </a>
-                <span className="post-meta">• Posted by u/{author} {timeAgo}</span>
-            </div>
+        {/* Snippet body (clickable) */}
+        <p
+          onClick={() => onOpen && onOpen(id)}
+          className="text-xs text-[#818384] line-clamp-3 cursor-pointer mb-3 leading-relaxed"
+        >
+          {bodyText}
+        </p>
 
-            {/* Title */}
-            <h2 className="post-title">
-                <a href="#">{title}</a>
-            </h2>
+        {imageUrl && (
+          <div className="mb-3 overflow-hidden rounded-lg">
+            <img src={imageUrl} alt="" className="max-h-96 w-full object-cover" />
+          </div>
+        )}
 
-            {/* Optional Body Text */}
-            {bodyText && <div className="post-body">{bodyText}</div>}
+        {/* Action bar */}
+        <div className="flex items-center gap-2 pt-1">
+          <div className="flex items-center bg-[#272729] rounded-full px-2 py-1 gap-1 text-xs text-[#D7DADC]">
+            <ArrowBigUp className="w-4 h-4 hover:text-[#FF4500] cursor-pointer" />
+            <span className="font-bold">{initialVotes}</span>
+            <ArrowBigDown className="w-4 h-4 hover:text-blue-500 cursor-pointer" />
+          </div>
 
-            {/* Optional Media Image */}
-            {imageUrl && (
-                <div className="post-media">
-                    <img src={imageUrl} alt={title} />
-                </div>
-            )}
+          <button
+            onClick={() => onOpen && onOpen(id)}
+            className="flex items-center gap-1.5 bg-[#272729] hover:bg-[#343536] rounded-full px-3 py-1 text-xs text-[#818384] hover:text-[#D7DADC] transition"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>{commentsCount} comments</span>
+          </button>
 
-            {/* Footer */}
-            <footer className="post-footer">
-                {/* Reddit-style Upvote/Downvote Pill */}
-                <div className="vote-box">
-                    <button
-                        onClick={() => handleVote('up')}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            color: userVote === 'up' ? 'var(--accent-orange)' : 'inherit',
-                        }}
-                    >
-                        <ArrowBigUp style={{ width: '18px', height: '18px' }} />
-                    </button>
-
-                    <span style={{ color: userVote === 'up' ? 'var(--accent-orange)' : userVote === 'down' ? 'var(--accent-blue)' : 'inherit' }}>
-                        {votes}
-                    </span>
-
-                    <button
-                        onClick={() => handleVote('down')}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            color: userVote === 'down' ? 'var(--accent-blue)' : 'inherit',
-                        }}
-                    >
-                        <ArrowBigDown style={{ width: '18px', height: '18px' }} />
-                    </button>
-                </div>
-
-                {/* Comments Button */}
-                <button className="pill-button">
-                    <MessageSquare style={{ width: '14px', height: '14px' }} />
-                    <span>{commentsCount} Comments</span>
-                </button>
-
-                {/* Share Button */}
-                <button className="pill-button">
-                    <Share2 style={{ width: '14px', height: '14px' }} />
-                    <span>Share</span>
-                </button>
-            </footer>
-        </article>
-    );
+          <button className="flex items-center gap-1.5 bg-[#272729] hover:bg-[#343536] rounded-full px-3 py-1 text-xs text-[#818384] hover:text-[#D7DADC] transition">
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share</span>
+          </button>
+        </div>
+      </div>
+    </article>
+  );
 };
