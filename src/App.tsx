@@ -12,12 +12,16 @@ export default function App() {
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string | null>(null);
+  const [preselectedCommunity, setPreselectedCommunity] = useState<string | null>(null);
 
   const handleNavigate = (page: PageType, targetIdOrSlug?: string) => {
     if (page === 'post-detail' && targetIdOrSlug) {
       setSelectedPostId(targetIdOrSlug);
     } else if (page === 'community' && targetIdOrSlug) {
       setSelectedCommunitySlug(targetIdOrSlug);
+    } else if (page === 'create-post') {
+      // Store the community passed from CommunityPage (or null if from Navbar)
+      setPreselectedCommunity(targetIdOrSlug || null);
     }
     setCurrentPage(page);
   };
@@ -40,7 +44,10 @@ export default function App() {
       {currentPage === 'profile' && <ProfilePage />}
 
       {currentPage === 'create-post' && (
-        <CreatePostPage onNavigate={handleNavigate} />
+        <CreatePostPage 
+          preselectedCommunityId={preselectedCommunity} 
+          onNavigate={handleNavigate} 
+        />
       )}
 
       {currentPage === 'community' && selectedCommunitySlug && (

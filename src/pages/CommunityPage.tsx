@@ -5,11 +5,10 @@ import {
   Calendar, 
   Globe, 
   Mail, 
-  Users,
-  Check,
-  MoreHorizontal,
-  Camera,
-  Image as ImageIcon
+  Users, 
+  Check, 
+  MoreHorizontal, 
+  ImageIcon 
 } from 'lucide-react';
 import { 
   getCommunityBySlug, 
@@ -19,7 +18,7 @@ import {
   leaveCommunity, 
   type Community 
 } from '../services/communityService';
-import { supabase } from '../services/supabaseclient';
+import { getPosts, type Post } from '../services/postService';
 import { LeftSidebar } from '../components/navigation/LeftSidebar';
 import { PostCard } from '../components/ui/PostCard';
 import { type PageType } from '../components/navigation/Navbar';
@@ -34,11 +33,10 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
   const [isOwner, setIsOwner] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [moderators, setModerators] = useState<any[]>([]);
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSort, setActiveSort] = useState<'best' | 'hot' | 'new' | 'top'>('best');
 
-  // Owner Icon Modal State
   const [showOwnerMenu, setShowOwnerMenu] = useState(false);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconUrlInput, setIconUrlInput] = useState('');
@@ -63,56 +61,31 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
 
         setCommunity(data);
 
-        // Load custom community icon from localStorage cache if saved
         const savedIcon = localStorage.getItem(`community_icon_${data.id}`);
         if (savedIcon) setCommunityIcon(savedIcon);
 
-        // Fetch User Membership and Ownership status
         const status = await getCommunityUserStatus(data.id, data.created_by);
         setIsMember(status.isMember);
         setIsOwner(status.isOwner);
 
-        // Fetch Moderators
         const mods = await getCommunityModerators(data.id);
         setModerators(mods);
 
-        // Fetch Community Posts with author, relations, and counts
-        const { data: postsData, error: postsError } = await supabase
-          .from('post')
-          .select(`
-            id,
-            community_id,
-            author_id,
-            title,
-            description,
-            schema,
-            example_row,
-            goal_count,
-            created_at,
-            updated_at,
-            author:user ( username ),
-            community:community ( id, slug, name )
-          `)
-          .eq('community_id', data.id)
-          .order('created_at', { ascending: false });
+        // Load posts for this community
+        let communityPosts = await getPosts(data.id);
 
-        if (!postsError && postsData) {
-          // Fetch live upvote and comment counts for each post
-          const postsWithCounts = await Promise.all(
-            postsData.map(async (p: any) => {
-              const [{ count: upvotes }, { count: comments }] = await Promise.all([
-                supabase.from('upvote').select('*', { count: 'exact', head: true }).eq('post_id', p.id),
-                supabase.from('comment').select('*', { count: 'exact', head: true }).eq('post_id', p.id),
-              ]);
-              return {
-                ...p,
-                upvotes_count: upvotes || 0,
-                comments_count: comments || 0,
-              };
-            })
+        // Fallback filter
+        if (!communityPosts || communityPosts.length === 0) {
+          const allPosts = await getPosts();
+          communityPosts = allPosts.filter(
+            (p) =>
+              p.community_id === data.id ||
+              p.community?.slug?.toLowerCase() === data.slug.toLowerCase() ||
+              p.community?.name?.toLowerCase() === data.name.toLowerCase()
           );
-          setPosts(postsWithCounts);
         }
+
+        setPosts(communityPosts);
       } catch (err) {
         console.error('Error loading community:', err);
       } finally {
@@ -123,7 +96,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
     loadCommunityData();
   }, [slug]);
 
-  // Click outside to close owner 3-dot dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -134,7 +106,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle Join / Leave Community Toggle (for non-owners only)
   const handleToggleJoin = async () => {
     if (!community) return;
     try {
@@ -147,11 +118,10 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
       }
       window.dispatchEvent(new Event('community-updated'));
     } catch (err: any) {
-      alert(err.message || 'Failed to update membership. Make sure you are logged in.');
+      alert(err.message || 'Failed to update membership.');
     }
   };
 
-  // Handle saving community image/icon
   const handleSaveCommunityIcon = (e: React.FormEvent) => {
     e.preventDefault();
     if (!community || !iconUrlInput.trim()) return;
@@ -163,20 +133,20 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
     setIconUrlInput('');
   };
 
-  // Algorithmic Feed Sorter: Best, Hot, New, Top
+  // Complete real-time Reddit sorting algorithm
   const sortedPosts = useMemo(() => {
     const list = [...posts];
     switch (activeSort) {
       case 'new':
-        // Most recent first
+        // Newest timestamp first
         return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
       case 'top':
-        // Highest total votes
+        // Pure highest votes first
         return list.sort((a, b) => (b.upvotes_count || 0) - (a.upvotes_count || 0));
       
       case 'hot':
-        // Score with time decay (hours elapsed)
+        // Reddit Hot algorithm: scores decayed by hours passed
         return list.sort((a, b) => {
           const ageA = Math.max(1, (Date.now() - new Date(a.created_at).getTime()) / 36e5);
           const ageB = Math.max(1, (Date.now() - new Date(b.created_at).getTime()) / 36e5);
@@ -187,7 +157,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
       
       case 'best':
       default:
-        // Weighted engagement (upvotes and comments)
+        // Highest total engagement
         return list.sort((a, b) => {
           const scoreA = (a.upvotes_count || 0) * 2 + (a.comments_count || 0);
           const scoreB = (b.upvotes_count || 0) * 2 + (b.comments_count || 0);
@@ -213,9 +183,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
         <LeftSidebar onNavigate={onNavigate} />
         <main className="main-feed" style={{ textAlign: 'center', padding: '48px' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#fff' }}>Community not found</h2>
-          <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-            We could not find c/{slug}.
-          </p>
           <button 
             onClick={() => onNavigate('home')} 
             className="btn-action"
@@ -230,21 +197,14 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
 
   return (
     <div className="app-layout">
-      {/* Left Navigation */}
       <LeftSidebar onNavigate={onNavigate} />
 
-      {/* Main Content Area */}
       <main className="main-feed">
-        {/* Banner & Header */}
-        <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', overflow: 'hidden', marginBottom: '16px' }}>
-          {/* Top Banner Graphic */}
-          <div style={{ height: '120px', width: '100%', background: 'linear-gradient(90deg, #064e3b 0%, #042f2e 100%)' }} />
+        <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', marginBottom: '16px', position: 'relative' }}>
+          <div style={{ height: '120px', width: '100%', borderTopLeftRadius: '15px', borderTopRightRadius: '15px', overflow: 'hidden', background: 'linear-gradient(90deg, #064e3b 0%, #042f2e 100%)' }} />
 
-          {/* Community Info Row */}
           <div style={{ padding: '0 20px 16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '-40px', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px' }}>
-              
-              {/* Community Icon (Supports custom image) */}
               <div 
                 style={{ 
                   width: '80px', 
@@ -275,11 +235,11 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* PASSES COMMUNITY ID SO CREATE POST IS PRE-SELECTED */}
               <button
                 type="button"
-                onClick={() => onNavigate('create-post')}
+                onClick={() => onNavigate('create-post', community.id)}
                 className="btn-action"
                 style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
@@ -287,7 +247,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
                 <span>Create Post</span>
               </button>
 
-              {/* OWNER ONLY: 3-dots button with "Change Community Icon" */}
               {isOwner ? (
                 <div style={{ position: 'relative' }} ref={menuRef}>
                   <button
@@ -305,14 +264,14 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
                       style={{ 
                         position: 'absolute', 
                         right: 0, 
-                        top: '40px', 
-                        zIndex: 50, 
+                        top: '42px', 
+                        zIndex: 1000, 
                         backgroundColor: '#1A1A1B', 
                         border: '1px solid #343536', 
                         borderRadius: '12px', 
                         padding: '6px', 
                         width: '210px', 
-                        boxShadow: '0 10px 25px rgba(0,0,0,0.6)' 
+                        boxShadow: '0 16px 36px rgba(0,0,0,0.85)' 
                       }}
                     >
                       <button
@@ -335,15 +294,16 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
                           borderRadius: '8px',
                           textAlign: 'left',
                         }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#272729')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
-                        <Camera style={{ width: '14px', height: '14px', color: '#FF4500' }} />
+                        <ImageIcon style={{ width: '15px', height: '15px', color: '#FF4500' }} />
                         <span>Change Community Icon</span>
                       </button>
                     </div>
                   )}
                 </div>
               ) : (
-                /* NON-OWNERS: Join / Joined Button */
                 <button
                   type="button"
                   onClick={handleToggleJoin}
@@ -373,7 +333,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           </div>
         </div>
 
-        {/* Feed Sorter: Best, Hot, New, Top */}
+        {/* FEED SORTERS */}
         <div style={{ display: 'flex', gap: '6px', backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '12px', padding: '8px', marginBottom: '16px' }}>
           {(['best', 'hot', 'new', 'top'] as const).map((sort) => (
             <button
@@ -396,23 +356,15 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           ))}
         </div>
 
-        {/* Posts Feed for this community */}
+        {/* POST FEED */}
         {sortedPosts.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', textAlign: 'center' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', margin: '0 0 6px 0' }}>
               This community doesn't have any posts yet
             </h2>
-            <p style={{ fontSize: '0.85rem', color: '#818384', margin: '0 0 20px 0' }}>
+            <p style={{ fontSize: '0.85rem', color: '#818384', margin: 0 }}>
               Make one and get this dataset feed started.
             </p>
-            <button
-              type="button"
-              onClick={() => onNavigate('create-post')}
-              className="btn-action"
-              style={{ backgroundColor: '#FF4500', color: '#fff', padding: '10px 24px', borderRadius: '999px' }}
-            >
-              Create Post
-            </button>
           </div>
         ) : (
           sortedPosts.map((post) => (
@@ -433,7 +385,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
         )}
       </main>
 
-      {/* Right Sidebar */}
       <aside className="right-sidebar">
         <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#818384', margin: '0 0 10px 0' }}>
@@ -454,7 +405,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           </div>
         </div>
 
-        {/* Community Rules */}
         <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#818384', margin: '0 0 10px 0' }}>
             c/{community.name} Rules
@@ -467,7 +417,6 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           </ol>
         </div>
 
-        {/* Moderators */}
         <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '16px' }}>
           <h2 style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#818384', margin: '0 0 10px 0' }}>
             Moderators
@@ -487,9 +436,9 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
         </div>
       </aside>
 
-      {/* OWNER: Change Community Icon Modal */}
+      {/* ICON UPLOAD MODAL */}
       {isIconModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 60 }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 2000 }}>
           <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '24px', maxWidth: '420px', width: '100%', color: '#D7DADC' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>

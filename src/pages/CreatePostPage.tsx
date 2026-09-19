@@ -10,13 +10,17 @@ import {
   type TagOption,
 } from '../services/postService';
 import type { DatasetField } from '../types/post';
+import type { PageType } from '../components/navigation/Navbar';
 
 interface CreatePostPageProps {
-  onNavigate?: (page: 'home' | 'profile' | 'create-post') => void;
+  preselectedCommunityId?: string | null;
+  onNavigate?: (page: PageType, targetIdOrSlug?: string) => void;
 }
 
-// NOTE: Added ({ onNavigate }) here:
-export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) => {
+export const CreatePostPage: React.FC<CreatePostPageProps> = ({ 
+  preselectedCommunityId, 
+  onNavigate 
+}) => {
   const [communities, setCommunities] = useState<CommunityOption[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string>('');
@@ -49,7 +53,7 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load communities and tags directly from Supabase
+  // Load communities and auto-select preselectedCommunityId
   useEffect(() => {
     async function loadData() {
       const [commList, tagList] = await Promise.all([
@@ -58,12 +62,23 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
       ]);
       setCommunities(commList);
       setTags(tagList);
+
       if (commList.length > 0) {
+        // Auto-select the community passed from CommunityPage
+        if (preselectedCommunityId) {
+          const match = commList.find(
+            (c) => c.id === preselectedCommunityId || c.slug.toLowerCase() === preselectedCommunityId.toLowerCase()
+          );
+          if (match) {
+            setSelectedCommunity(match.id);
+            return;
+          }
+        }
         setSelectedCommunity(commList[0].id);
       }
     }
     loadData();
-  }, []);
+  }, [preselectedCommunityId]);
 
   const toggleTag = (id: string) => {
     setSelectedTagIds((prev) =>
@@ -75,7 +90,6 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
     e.preventDefault();
     setError(null);
 
-    // 1. Get logged-in user from Supabase Auth
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -111,7 +125,7 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
     try {
       setLoading(true);
 
-      await createPost({
+      const created = await createPost({
         community_id: selectedCommunity,
         author_id: user.id,
         title: title.trim(),
@@ -123,7 +137,7 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
       });
 
       if (onNavigate) {
-        onNavigate('home');
+        onNavigate('post-detail', created.id);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create dataset post.');
@@ -132,10 +146,8 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
     }
   };
 
-  // ... (the rest of the JSX markup )
   return (
     <div className="min-h-screen bg-[#0E1113] text-[#D7DADC] font-sans pb-12">
-      {/* Top Breadcrumb / Header */}
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between pb-3 border-b border-[#343536]">
           <h1 className="text-xl font-bold text-[#D7DADC]">Request Data / Create Post</h1>
@@ -146,9 +158,8 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ================= LEFT / MAIN POST COMPOSER ================= */}
         <main className="lg:col-span-2 flex flex-col gap-4">
-          {/* Community Selector */}
+          {/* Community Selector with auto-selected option */}
           <div className="w-full sm:w-80">
             <select
               value={selectedCommunity}
@@ -164,9 +175,7 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
             </select>
           </div>
 
-          {/* Form Card */}
           <div className="bg-[#1A1A1B] border border-[#343536] rounded-xl overflow-hidden shadow-sm">
-            {/* Post Type Tabs */}
             <nav className="flex border-b border-[#343536] bg-[#1A1A1B]/50 text-sm font-semibold">
               <button
                 type="button"
@@ -212,7 +221,6 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
                 </div>
               )}
 
-              {/* Title */}
               <div>
                 <input
                   type="text"
@@ -225,7 +233,6 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
                 />
               </div>
 
-              {/* Tags Selector */}
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 items-center">
                   <span className="text-xs text-[#818384] font-medium mr-1">Topics:</span>
@@ -249,7 +256,6 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
                 </div>
               )}
 
-              {/* Description & Requirements */}
               <div>
                 <textarea
                   rows={4}
@@ -260,7 +266,6 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
                 ></textarea>
               </div>
 
-              {/* TAB 1: Schema Builder */}
               {activeTab === 'schema' && (
                 <SchemaBuilder
                   fields={fields}
@@ -270,26 +275,23 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
                 />
               )}
 
-              {/* TAB 2: Guidelines & Media References */}
               {activeTab === 'media' && (
                 <div className="border-2 border-dashed border-[#343536] hover:border-[#818384] rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center transition">
                   <div className="w-12 h-12 rounded-full bg-[#272729] flex items-center justify-center text-2xl">
                     📁
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#D7DADC]">Upload Reference Dataset or Prompt Image</p>
+                    <p className="text-sm font-medium text-[#D7DADC]">Upload Reference Prompt</p>
                     <p className="text-xs text-[#818384] mt-0.5">
-                      Upload sample CSVs, schema diagrams, or reference images to guide survey respondents
+                      Upload sample CSVs, schema diagrams, or images
                     </p>
                   </div>
-                  <input type="file" className="text-xs text-[#818384] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[#272729] file:text-[#D7DADC] file:cursor-pointer" />
+                  <input type="file" className="text-xs text-[#818384]" />
                 </div>
               )}
 
-              {/* TAB 3: JSON Preview */}
               {activeTab === 'preview' && (
                 <div className="bg-[#0E1113] p-4 rounded-lg border border-[#343536] font-mono text-xs overflow-x-auto">
-                  <div className="text-[#818384] mb-2">// Generated database payload preview</div>
                   <pre className="text-green-400">
                     {JSON.stringify(
                       {
@@ -305,19 +307,18 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
                 </div>
               )}
 
-              {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#343536]">
                 <button
-        type="button"
-        onClick={() => onNavigate && onNavigate('home')}
-        className="px-4 py-2 text-sm font-semibold rounded-full border border-[#343536] text-[#818384] hover:text-[#D7DADC] hover:bg-[#272729] transition"
-      >
-        Cancel
-      </button>
+                  type="button"
+                  onClick={() => onNavigate && onNavigate('home')}
+                  className="px-4 py-2 text-sm font-semibold rounded-full border border-[#343536] text-[#818384] hover:text-[#D7DADC] hover:bg-[#272729] transition"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 text-sm font-semibold rounded-full bg-[#FF4500] hover:bg-[#E03D00] text-white transition disabled:opacity-50 shadow-sm"
+                  className="px-6 py-2 text-sm font-semibold rounded-full bg-[#FF4500] hover:bg-[#E03D00] text-white transition disabled:opacity-50 shadow-sm cursor-pointer"
                 >
                   {loading ? 'Publishing Dataset...' : 'Publish Data Request'}
                 </button>
@@ -326,28 +327,15 @@ export const CreatePostPage: React.FC<CreatePostPageProps> = ({ onNavigate }) =>
           </div>
         </main>
 
-        {/* ================= RIGHT SIDEBAR ================= */}
         <aside className="hidden lg:flex flex-col gap-4">
           <div className="bg-[#1A1A1B] border border-[#343536] rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[#FF4500] font-bold text-lg">💡</span>
-              <h2 className="font-semibold text-[#D7DADC] text-sm">Best Practices for Open Datasets</h2>
-            </div>
-            <ol className="list-decimal list-inside space-y-2 text-xs text-[#818384] leading-relaxed">
-              <li>Use clean, underscore_cased names for fields (e.g. <code className="text-[#D7DADC]">salary_usd</code>).</li>
-              <li>Always supply an accurate <strong>example row</strong> to show expected format.</li>
-              <li>Clearly specify units (e.g., kilograms, USD, ISO-8601 timestamps).</li>
-              <li>Keep the schema simple for contributors to maximize response rates.</li>
-              <li>Follow data privacy standards and avoid requesting personal identification info (PII).</li>
+            <h2 className="font-semibold text-[#D7DADC] text-sm mb-2">Posting Best Practices</h2>
+            <ol className="list-decimal list-inside space-y-2 text-xs text-[#818384]">
+              <li>Use clean, underscore_cased column names.</li>
+              <li>Always supply an accurate example row.</li>
+              <li>Keep schema simple to maximize contributions.</li>
             </ol>
           </div>
-
-          <footer className="px-2 text-xs text-[#818384] flex flex-wrap gap-x-3 gap-y-1">
-            <a href="#" className="hover:underline">Dataset Guidelines</a>
-            <a href="#" className="hover:underline">Privacy Policy</a>
-            <a href="#" className="hover:underline">API Docs</a>
-            <p className="w-full mt-2 text-[11px] text-zinc-600">DataShare Hub © 2026</p>
-          </footer>
         </aside>
       </div>
     </div>
