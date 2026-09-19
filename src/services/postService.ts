@@ -12,6 +12,7 @@ export interface Post {
   goal_count: number;
   created_at: string;
   updated_at: string;
+  submitted_rows_count?: number;
   author?: {
     username: string;
     avatar_url?: string;

@@ -1,22 +1,22 @@
 // src/pages/CommunityPage.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  Plus, 
-  Calendar, 
-  Globe, 
-  Mail, 
-  Users, 
-  Check, 
-  MoreHorizontal, 
-  ImageIcon 
+import {
+  Plus,
+  Calendar,
+  Globe,
+  Mail,
+  Users,
+  Check,
+  MoreHorizontal,
+  ImageIcon
 } from 'lucide-react';
-import { 
-  getCommunityBySlug, 
-  getCommunityUserStatus, 
+import {
+  getCommunityBySlug,
+  getCommunityUserStatus,
   getCommunityModerators,
-  joinCommunity, 
-  leaveCommunity, 
-  type Community 
+  joinCommunity,
+  leaveCommunity,
+  type Community
 } from '../services/communityService';
 import { getPosts, type Post } from '../services/postService';
 import { LeftSidebar } from '../components/navigation/LeftSidebar';
@@ -32,7 +32,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
   const [community, setCommunity] = useState<Community | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isMember, setIsMember] = useState(false);
-  const [moderators, setModerators] = useState<any[]>([]);
+  const [_moderators, setModerators] = useState<any[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSort, setActiveSort] = useState<'best' | 'hot' | 'new' | 'top'>('best');
@@ -140,11 +140,11 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
       case 'new':
         // Newest timestamp first
         return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
+
       case 'top':
         // Pure highest votes first
         return list.sort((a, b) => (b.upvotes_count || 0) - (a.upvotes_count || 0));
-      
+
       case 'hot':
         // Reddit Hot algorithm: scores decayed by hours passed
         return list.sort((a, b) => {
@@ -154,7 +154,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
           const hotB = (b.upvotes_count || 0) / Math.pow(ageB + 2, 1.25);
           return hotB - hotA;
         });
-      
+
       case 'best':
       default:
         // Highest total engagement
@@ -183,8 +183,8 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
         <LeftSidebar onNavigate={onNavigate} />
         <main className="main-feed" style={{ textAlign: 'center', padding: '48px' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#fff' }}>Community not found</h2>
-          <button 
-            onClick={() => onNavigate('home')} 
+          <button
+            onClick={() => onNavigate('home')}
             className="btn-action"
             style={{ marginTop: '16px', backgroundColor: '#FF4500', color: '#fff', padding: '8px 20px', borderRadius: '999px', cursor: 'pointer' }}
           >
@@ -205,17 +205,17 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
 
           <div style={{ padding: '0 20px 16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '-40px', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px' }}>
-              <div 
-                style={{ 
-                  width: '80px', 
-                  height: '80px', 
-                  borderRadius: '50%', 
-                  backgroundColor: '#FF4500', 
-                  border: '4px solid #1A1A1B', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  color: '#fff', 
+              <div
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FF4500',
+                  border: '4px solid #1A1A1B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
                   boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
                   overflow: 'hidden'
                 }}
@@ -260,18 +260,18 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ slug, onNavigate }
                   </button>
 
                   {showOwnerMenu && (
-                    <div 
-                      style={{ 
-                        position: 'absolute', 
-                        right: 0, 
-                        top: '42px', 
-                        zIndex: 1000, 
-                        backgroundColor: '#1A1A1B', 
-                        border: '1px solid #343536', 
-                        borderRadius: '12px', 
-                        padding: '6px', 
-                        width: '210px', 
-                        boxShadow: '0 16px 36px rgba(0,0,0,0.85)' 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '42px',
+                        zIndex: 1000,
+                        backgroundColor: '#1A1A1B',
+                        border: '1px solid #343536',
+                        borderRadius: '12px',
+                        padding: '6px',
+                        width: '210px',
+                        boxShadow: '0 16px 36px rgba(0,0,0,0.85)'
                       }}
                     >
                       <button

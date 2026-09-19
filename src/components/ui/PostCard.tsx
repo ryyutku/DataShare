@@ -13,6 +13,8 @@ interface PostCardProps {
   title: string;
   bodyText: string;
   imageUrl?: string;
+  initialVotes?: number;
+  commentsCount?: number;
   onOpen?: (postId: string) => void;
 }
 

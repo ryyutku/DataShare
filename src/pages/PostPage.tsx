@@ -1,6 +1,6 @@
 // src/pages/PostPage.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { addToHistory, toggleSavePost, isPostSaved } from '../services/profileService';
+import { addToHistory } from '../services/profileService';
 import { supabase } from '../services/supabaseclient';
 import {
   getPostById,

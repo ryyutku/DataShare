@@ -1,5 +1,5 @@
 // src/pages/ProfilePage.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseclient';
 import { LeftSidebar } from '../components/navigation/LeftSidebar';
 import { PostCard } from '../components/ui/PostCard';
@@ -14,12 +14,12 @@ import {
 } from '../services/profileService';
 import { type Post } from '../services/postService';
 import { type PageType } from '../components/navigation/Navbar';
-import { 
-  FileText, 
-  Database, 
-  MessageSquare, 
-  Bookmark, 
-  Clock 
+import {
+  FileText,
+  Database,
+  MessageSquare,
+  Bookmark,
+  Clock
 } from 'lucide-react';
 
 export type ProfileTab = 'posts' | 'contributions' | 'comments' | 'saved' | 'history';
@@ -90,10 +90,10 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
         const userDate = userData?.created_at || user.created_at;
         const dateFormatted = userDate
           ? new Date(userDate).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
           : 'Recently';
 
         setStats({
@@ -132,18 +132,18 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
 
           <div style={{ padding: '0 20px 16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '-36px', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px' }}>
-              <div 
-                style={{ 
-                  width: '76px', 
-                  height: '76px', 
-                  borderRadius: '50%', 
-                  backgroundColor: '#FF4500', 
-                  border: '4px solid #1A1A1B', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  color: '#fff', 
-                  fontSize: '2rem', 
+              <div
+                style={{
+                  width: '76px',
+                  height: '76px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FF4500',
+                  border: '4px solid #1A1A1B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: '2rem',
                   fontWeight: 800,
                   boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                 }}
