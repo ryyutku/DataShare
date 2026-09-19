@@ -1,6 +1,6 @@
 // src/components/ui/PostCard.tsx
 import React, { useState, useEffect } from 'react';
-import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2 } from 'lucide-react';
+import { ArrowBigUp, ArrowBigDown, MessageSquare, Share2, Link2, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toggleUpvote, hasUserUpvoted, getPostUpvoteCount } from '../../services/upvoteService';
 import { getCommentCount } from '../../services/commentService';
@@ -34,6 +34,24 @@ export const PostCard: React.FC<PostCardProps> = ({
 
 
   const [commentsCount, setCommentsCount] = useState<number>(0);
+
+  // Share dropdown state
+  const [showShareMenu, setShowShareMenu] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const shareMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking anywhere outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+        setShowShareMenu(false);
+      }
+    };
+    if (showShareMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showShareMenu]);
 
   useEffect(() => {
     let isMounted = true;
@@ -106,15 +124,19 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleCopyLink = (e: React.MouseEvent) => {
     e.stopPropagation();
     const url = `${window.location.origin}/post/${id}`;
     navigator.clipboard.writeText(url);
-    alert('Post link copied to clipboard!');
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setShowShareMenu(false);
+    }, 1200);
   };
 
   return (
-    <article className="post-card bg-[#1A1A1B] border border-[#343536] rounded-xl mb-3 overflow-hidden hover:border-[#818384] transition">
+    <article className="post-card bg-[#1A1A1B] border border-[#343536] rounded-xl mb-3 hover:border-[#818384] transition">
       <div className="p-3">
         {/* Subreddit & Author header */}
         <div className="flex items-center gap-2 text-xs text-[#818384] mb-2">
@@ -222,13 +244,45 @@ export const PostCard: React.FC<PostCardProps> = ({
           </button>
 
           {/* SHARE BUTTON */}
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-1.5 bg-[#272729] hover:bg-[#343536] rounded-full px-3 py-1 text-xs text-[#818384] hover:text-[#D7DADC] transition"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span>Share</span>
-          </button>
+          <div className="relative" ref={shareMenuRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowShareMenu(!showShareMenu);
+              }}
+              className="flex items-center gap-1.5 bg-[#272729] hover:bg-[#343536] rounded-full px-3 py-1 text-xs text-[#818384] hover:text-[#D7DADC] transition cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share</span>
+            </button>
+
+            {showShareMenu && (
+              <div
+                className="absolute left-0 bottom-full mb-2 w-36 bg-[#1A1A1B] border border-[#343536] rounded-xl shadow-2xl p-1 z-50"
+                style={{
+                  backgroundColor: '#1A1A1B',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.85)'
+                }}
+              >
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-xs text-[#D7DADC] hover:bg-[#272729] rounded-lg transition text-left cursor-pointer"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-green-400" />
+                      <span className="text-green-400 font-medium">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="w-3.5 h-3.5 text-[#818384]" />
+                      <span>Copy link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
       </div>

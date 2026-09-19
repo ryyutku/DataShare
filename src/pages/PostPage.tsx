@@ -5,7 +5,6 @@ import {
   getPostById,
   getSubmissionRows,
   submitRow,
-  togglePostUpvote,
   toggleCommunityMembership,
   checkCommunityMembership,
   updatePost,
@@ -21,7 +20,7 @@ import {
 import { ContributeRowModal } from '../components/ui/ContributeRowModal';
 import { CommentSection } from '../components/ui/CommentSection';
 import type { PageType } from '../components/navigation/Navbar';
-import { Pencil, Trash2, Copy, Bookmark, Plus, X, Lock, ArrowBigDown, ArrowBigUp } from 'lucide-react';
+import { Pencil, Trash2, Copy, Bookmark, Plus, X, Lock, ArrowBigUp, ArrowBigDown, ExternalLink } from 'lucide-react';
 import { toggleUpvote, hasUserUpvoted, getPostUpvoteCount } from '../services/upvoteService';
 
 interface PostPageProps {
@@ -684,11 +683,53 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
             </ol>
           </div>
 
-          <footer className="px-2 text-xs text-[#818384] flex flex-wrap gap-x-3 gap-y-1">
-            <a href="#" className="hover:underline">Data Guidelines</a>
-            <a href="#" className="hover:underline">Privacy Policy</a>
-            <p className="w-full mt-2 text-[11px] text-zinc-600">DataShare Platform © 2026</p>
-          </footer>
+          <div className="rounded-xl border border-[#343536] bg-[#1A1A1B] p-4 text-xs overflow-hidden relative shadow-sm">
+            {/* Promoted Badge */}
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#818384] bg-white/5 px-1.5 py-0.5 rounded">
+                Promoted
+              </span>
+              <span className="text-[11px] text-[#818384]">Ad</span>
+            </div>
+
+            {/* Title & Description */}
+            <h4 className="font-semibold text-sm text-[#D7DADC] mb-1">
+              Supabase Cloud Database
+            </h4>
+            <p className="text-[#818384] leading-relaxed mb-3">
+              Build production-ready apps in minutes with Postgres, Authentication, and instant APIs.
+            </p>
+
+            {/* Ad Image Banner */}
+            <a
+              href="https://supabase.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-lg overflow-hidden mb-3"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80"
+                alt="Supabase Ad"
+                className="w-full h-[13rem] object-cover hover:scale-105 transition duration-300"
+              />
+            </a>
+
+            {/* Call to Action Button */}
+            <a
+              href="https://supabase.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 w-full bg-[#272729] hover:bg-[#343536] border border-[#343536] text-[#D7DADC] py-2 rounded-full font-semibold transition"
+            >
+              <span>Get Started Free</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          {/* Footer Copyright */}
+          <div className="px-2 text-[11px] text-[#818384] leading-relaxed">
+            <p>DataShare Inc. © {new Date().getFullYear()}. All rights reserved.</p>
+          </div>
         </aside>
       </div>
 
