@@ -21,7 +21,8 @@ import {
 import { ContributeRowModal } from '../components/ui/ContributeRowModal';
 import { CommentSection } from '../components/ui/CommentSection';
 import type { PageType } from '../components/navigation/Navbar';
-import { Pencil, Trash2, Copy, Bookmark, Plus, X, Lock } from 'lucide-react';
+import { Pencil, Trash2, Copy, Bookmark, Plus, X, Lock, ArrowBigDown, ArrowBigUp } from 'lucide-react';
+import { toggleUpvote, hasUserUpvoted, getPostUpvoteCount } from '../services/upvoteService';
 
 interface PostPageProps {
   postId: string;
@@ -56,6 +57,10 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
   const [columnsList, setColumnsList] = useState<ColumnItem[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Dedicated Upvote / Downvote State
+  const [upvotes, setUpvotes] = useState<number>(0);
+  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
+  const [isVoting, setIsVoting] = useState<boolean>(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,6 +86,14 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
         setPost(postData);
         setRows(rowsData);
         setComments(commentsData);
+
+        // Fetch real votes and user's previous vote status
+        const count = await getPostUpvoteCount(postId);
+        setUpvotes(count);
+        if (user) {
+          const voted = await hasUserUpvoted(postId, user.id);
+          if (voted) setUserVote('up');
+        }
 
         // Populate Edit State
         setEditTitle(postData.title);
@@ -118,21 +131,43 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
 
   const isAuthor = Boolean(currentUser && post && currentUser.id === post.author_id);
 
-  const handleVote = async () => {
-    if (!currentUser || !post) return;
-    const previousVoted = post.has_upvoted;
-    const previousScore = post.upvotes_count || 0;
+  const handleVote = async (type: 'up' | 'down') => {
+    if (!currentUser || !post) {
+      alert('Please log in to vote!');
+      return;
+    }
+    if (isVoting) return;
 
-    setPost({
-      ...post,
-      has_upvoted: !previousVoted,
-      upvotes_count: previousVoted ? previousScore - 1 : previousScore + 1,
-    });
+    const previousVote = userVote;
+    const previousCount = upvotes;
+
+    if (previousVote === type) {
+      setUserVote(null);
+      setUpvotes(type === 'up' ? Math.max(0, previousCount - 1) : previousCount + 1);
+    } else if (previousVote === null) {
+      setUserVote(type);
+      setUpvotes(type === 'up' ? previousCount + 1 : Math.max(0, previousCount - 1));
+    } else {
+      setUserVote(type);
+      setUpvotes(type === 'up' ? previousCount + 2 : Math.max(0, previousCount - 2));
+    }
 
     try {
-      await togglePostUpvote(post.id, currentUser.id);
-    } catch {
-      setPost({ ...post, has_upvoted: previousVoted, upvotes_count: previousScore });
+      setIsVoting(true);
+      const shouldHaveUpvoteRecord = (previousVote !== 'up' && type === 'up');
+      const currentlyHasRecord = await hasUserUpvoted(post.id, currentUser.id);
+
+      if (shouldHaveUpvoteRecord && !currentlyHasRecord) {
+        await toggleUpvote(post.id, currentUser.id);
+      } else if (!shouldHaveUpvoteRecord && currentlyHasRecord) {
+        await toggleUpvote(post.id, currentUser.id);
+      }
+    } catch (err) {
+      setUserVote(previousVote);
+      setUpvotes(previousCount);
+      console.error('Vote failed:', err);
+    } finally {
+      setIsVoting(false);
     }
   };
 
@@ -148,6 +183,12 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
     await submitRow(post.id, currentUser.id, rowData);
     const updatedRows = await getSubmissionRows(post.id);
     setRows(updatedRows);
+  };
+
+  const countAllComments = (commentList: any[]): number => {
+    return commentList.reduce((total, comment) => {
+      return total + 1 + (comment.replies ? countAllComments(comment.replies) : 0);
+    }, 0);
   };
 
   const handleAddComment = async (body: string, parentCommentId: string | null = null) => {
@@ -298,11 +339,11 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
   return (
     <div className="min-h-screen bg-[#0E1113] text-[#D7DADC] font-sans pb-16">
       <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* ================= MAIN COLUMN ================= */}
         <main className="lg:col-span-2 flex flex-col gap-4">
           <article className="rounded-xl border border-[#343536] bg-[#1A1A1B] p-5 shadow-sm">
-            
+
             {/* Header: Reddit-Style Back Button + Info + 3-Dots */}
             <div className="flex items-center justify-between text-xs text-[#818384] mb-4 pb-3 border-b border-[#343536]/50">
               <div className="flex items-center gap-3">
@@ -515,21 +556,74 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
 
             {/* Voting bar */}
             <div className="flex items-center gap-4 pt-2">
-              <button
-                type="button"
-                onClick={handleVote}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${
-                  post.has_upvoted
-                    ? 'border-[#FF4500] text-[#FF4500] bg-[#FF4500]/10'
-                    : 'border-[#343536] text-[#818384] hover:bg-[#272729] hover:text-[#D7DADC]'
-                }`}
-              >
-                <span>▲</span>
-                <span>{post.upvotes_count ?? 0}</span>
-              </button>
+              <div className="flex items-center bg-[#272729] rounded-full px-2 py-1 gap-1 text-xs">
+                {/* UPVOTE (ORANGE) */}
+                <button
+                  type="button"
+                  onClick={() => handleVote('up')}
+                  disabled={isVoting}
+                  title="Upvote"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '2px',
+                    color: userVote === 'up' ? '#FF4500' : '#D7DADC',
+                    transition: 'color 0.15s ease, transform 0.1s ease',
+                  }}
+                  className="hover:scale-110"
+                >
+                  <ArrowBigUp
+                    className="w-5 h-5"
+                    fill={userVote === 'up' ? '#FF4500' : 'transparent'}
+                  />
+                </button>
+
+                {/* SCORE */}
+                <span
+                  className="font-bold px-1"
+                  style={{
+                    color:
+                      userVote === 'up'
+                        ? '#FF4500'
+                        : userVote === 'down'
+                          ? '#7193FF'
+                          : '#D7DADC',
+                    transition: 'color 0.15s ease',
+                  }}
+                >
+                  {upvotes}
+                </span>
+
+                {/* DOWNVOTE (BLUE) */}
+                <button
+                  type="button"
+                  onClick={() => handleVote('down')}
+                  disabled={isVoting}
+                  title="Downvote"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '2px',
+                    color: userVote === 'down' ? '#7193FF' : '#D7DADC',
+                    transition: 'color 0.15s ease, transform 0.1s ease',
+                  }}
+                  className="hover:scale-110"
+                >
+                  <ArrowBigDown
+                    className="w-5 h-5"
+                    fill={userVote === 'down' ? '#7193FF' : 'transparent'}
+                  />
+                </button>
+              </div>
 
               <span className="text-xs text-[#818384]">
-                💬 {comments.length} Comments
+                💬 {countAllComments(comments)} Comments
               </span>
             </div>
 
@@ -552,11 +646,10 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
                   type="button"
                   onClick={handleJoinToggle}
                   disabled={!currentUser}
-                  className={`rounded-full px-3.5 py-1 text-xs font-semibold transition cursor-pointer ${
-                    isJoined
-                      ? 'border border-[#343536] text-[#D7DADC] hover:bg-[#272729]'
-                      : 'bg-[#FF4500] text-white hover:bg-[#E03D00]'
-                  }`}
+                  className={`rounded-full px-3.5 py-1 text-xs font-semibold transition cursor-pointer ${isJoined
+                    ? 'border border-[#343536] text-[#D7DADC] hover:bg-[#272729]'
+                    : 'bg-[#FF4500] text-white hover:bg-[#E03D00]'
+                    }`}
                 >
                   {isJoined ? 'Joined' : 'Join'}
                 </button>
@@ -705,9 +798,8 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
                               name: e.target.value.toLowerCase().replace(/\s+/g, '_'),
                             })
                           }
-                          className={`w-full rounded-md border border-[#343536] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none ${
-                            col.isExisting ? 'bg-[#1A1A1B] opacity-75 cursor-not-allowed font-mono' : 'bg-[#1A1A1B]'
-                          }`}
+                          className={`w-full rounded-md border border-[#343536] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none ${col.isExisting ? 'bg-[#1A1A1B] opacity-75 cursor-not-allowed font-mono' : 'bg-[#1A1A1B]'
+                            }`}
                           required
                         />
                       </div>
@@ -721,9 +813,8 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
                           value={col.type}
                           disabled={col.isExisting}
                           onChange={(e) => handleUpdateColumn(col.id, { type: e.target.value })}
-                          className={`w-full rounded-md border border-[#343536] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none ${
-                            col.isExisting ? 'bg-[#1A1A1B] opacity-75 cursor-not-allowed' : 'bg-[#1A1A1B] cursor-pointer'
-                          }`}
+                          className={`w-full rounded-md border border-[#343536] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none ${col.isExisting ? 'bg-[#1A1A1B] opacity-75 cursor-not-allowed' : 'bg-[#1A1A1B] cursor-pointer'
+                            }`}
                         >
                           <option value="string">Text (string)</option>
                           <option value="number">Number</option>
