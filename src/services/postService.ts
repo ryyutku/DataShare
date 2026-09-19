@@ -14,6 +14,7 @@ export interface Post {
   updated_at: string;
   author?: {
     username: string;
+    avatar_url?: string;
   };
   community?: {
     id?: string;
@@ -49,6 +50,7 @@ export interface TagOption {
   slug: string;
 }
 
+// 1. Fetch communities for dropdowns
 export async function getCommunities(): Promise<CommunityOption[]> {
   const { data, error } = await supabase
     .from('community')
@@ -58,6 +60,7 @@ export async function getCommunities(): Promise<CommunityOption[]> {
   return data || [];
 }
 
+// 2. Fetch tags
 export async function getTags(): Promise<TagOption[]> {
   const { data, error } = await supabase
     .from('tag')
@@ -67,6 +70,7 @@ export async function getTags(): Promise<TagOption[]> {
   return data || [];
 }
 
+// 3. Fetch all posts
 export async function getPosts(communityId?: string): Promise<Post[]> {
   let query = supabase
     .from('post')
@@ -99,6 +103,7 @@ export async function getPosts(communityId?: string): Promise<Post[]> {
   return (data as unknown as Post[]) || [];
 }
 
+// 4. Fetch single post by ID
 export async function getPostById(postId: string, currentUserId?: string): Promise<Post | null> {
   const { data, error } = await supabase
     .from('post')
@@ -128,13 +133,11 @@ export async function getPostById(postId: string, currentUserId?: string): Promi
 
   if (error || !data) return null;
 
-  // Upvote count
   const { count: upvotesCount } = await supabase
     .from('upvote')
     .select('*', { count: 'exact', head: true })
     .eq('post_id', postId);
 
-  // Check if current user voted
   let hasUpvoted = false;
   if (currentUserId) {
     const { data: vote } = await supabase
@@ -153,6 +156,7 @@ export async function getPostById(postId: string, currentUserId?: string): Promi
   };
 }
 
+// 5. Create new post
 export async function createPost(newPost: {
   community_id: string;
   author_id: string;
@@ -193,6 +197,49 @@ export async function createPost(newPost: {
   return data as Post;
 }
 
+// 6. UPDATE POST (Required for author editing)
+export async function updatePost(
+  postId: string,
+  updates: {
+    title?: string;
+    description?: string;
+    schema?: Record<string, any>;
+    example_row?: Record<string, any>;
+    goal_count?: number;
+  }
+): Promise<Post> {
+  const { data, error } = await supabase
+    .from('post')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', postId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating post:', error.message);
+    throw error;
+  }
+
+  return data as Post;
+}
+
+// 7. DELETE POST (Required for author deletion)
+export async function deletePost(postId: string): Promise<void> {
+  const { error } = await supabase
+    .from('post')
+    .delete()
+    .eq('id', postId);
+
+  if (error) {
+    console.error('Error deleting post:', error.message);
+    throw error;
+  }
+}
+
+// 8. Upvote toggle
 export async function togglePostUpvote(postId: string, userId: string): Promise<boolean> {
   const { data: existing } = await supabase
     .from('upvote')
@@ -210,6 +257,7 @@ export async function togglePostUpvote(postId: string, userId: string): Promise<
   }
 }
 
+// 9. Fetch submitted rows
 export async function getSubmissionRows(postId: string): Promise<SubmissionRow[]> {
   const { data, error } = await supabase
     .from('submission_row')
@@ -232,6 +280,7 @@ export async function getSubmissionRows(postId: string): Promise<SubmissionRow[]
   return (data as unknown as SubmissionRow[]) || [];
 }
 
+// 10. Submit a new data row
 export async function submitRow(postId: string, contributorId: string, rowData: Record<string, any>) {
   const { data, error } = await supabase
     .from('submission_row')
@@ -251,6 +300,7 @@ export async function submitRow(postId: string, contributorId: string, rowData: 
   return data;
 }
 
+// 11. Membership helpers
 export async function checkCommunityMembership(communityId: string, userId: string): Promise<boolean> {
   const { data } = await supabase
     .from('community_members')

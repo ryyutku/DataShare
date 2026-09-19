@@ -1,5 +1,5 @@
 // src/pages/PostPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseclient';
 import {
   getPostById,
@@ -8,6 +8,8 @@ import {
   togglePostUpvote,
   toggleCommunityMembership,
   checkCommunityMembership,
+  updatePost,
+  deletePost,
   type Post,
   type SubmissionRow,
 } from '../services/postService';
@@ -19,10 +21,19 @@ import {
 import { ContributeRowModal } from '../components/ui/ContributeRowModal';
 import { CommentSection } from '../components/ui/CommentSection';
 import type { PageType } from '../components/navigation/Navbar';
+import { Pencil, Trash2, Copy, Bookmark, Plus, X, Lock } from 'lucide-react';
 
 interface PostPageProps {
   postId: string;
   onNavigate: (page: PageType, postId?: string) => void;
+}
+
+interface ColumnItem {
+  id: string;
+  name: string;
+  type: string;
+  exampleValue: string;
+  isExisting: boolean; // existing columns cannot be deleted
 }
 
 export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
@@ -35,6 +46,17 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
   const [error, setError] = useState<string | null>(null);
   const [isJoined, setIsJoined] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Author Edit State
+  const [showMenu, setShowMenu] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editGoalCount, setEditGoalCount] = useState<number>(100);
+  const [columnsList, setColumnsList] = useState<ColumnItem[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadPostData() {
@@ -59,6 +81,21 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
         setPost(postData);
         setRows(rowsData);
         setComments(commentsData);
+
+        // Populate Edit State
+        setEditTitle(postData.title);
+        setEditDescription(postData.description);
+        setEditGoalCount(postData.goal_count || 100);
+
+        // Convert existing schema + example_row into array of ColumnItems
+        const currentCols: ColumnItem[] = Object.entries(postData.schema || {}).map(([name, type]) => ({
+          id: name,
+          name,
+          type: String(type),
+          exampleValue: String(postData.example_row?.[name] ?? ''),
+          isExisting: true, // Marked as permanent (no deletion)
+        }));
+        setColumnsList(currentCols);
       } catch (err: any) {
         setError(err.message || 'Failed to load post');
       } finally {
@@ -67,6 +104,19 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
     }
     loadPostData();
   }, [postId]);
+
+  // Click outside to close 3-dots dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isAuthor = Boolean(currentUser && post && currentUser.id === post.author_id);
 
   const handleVote = async () => {
     if (!currentUser || !post) return;
@@ -110,6 +160,95 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
     });
     const updated = await getCommentsByPostId(post.id);
     setComments(updated);
+  };
+
+  // Add a new column to the draft list
+  const handleAddNewColumn = () => {
+    const newCol: ColumnItem = {
+      id: crypto.randomUUID(),
+      name: '',
+      type: 'string',
+      exampleValue: '',
+      isExisting: false, // newly added, can be discarded before save
+    };
+    setColumnsList((prev) => [...prev, newCol]);
+  };
+
+  // Update column attributes (for example value, name of new column, etc.)
+  const handleUpdateColumn = (id: string, updates: Partial<ColumnItem>) => {
+    setColumnsList((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
+  };
+
+  // Discard a newly added column before saving
+  const handleRemoveDraftColumn = (id: string) => {
+    setColumnsList((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // Author Save Edit (Handles Title, Description, Goal, and Schema/Columns)
+  const handleSavePostEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!post || !editTitle.trim()) return;
+
+    // Validate that all columns have a non-empty name
+    for (const col of columnsList) {
+      if (!col.name.trim()) {
+        alert('All columns must have a valid name.');
+        return;
+      }
+    }
+
+    // Build the updated schema and example_row
+    const updatedSchema: Record<string, string> = {};
+    const updatedExampleRow: Record<string, any> = {};
+
+    columnsList.forEach((c) => {
+      const cleanName = c.name.trim().toLowerCase().replace(/\s+/g, '_');
+      updatedSchema[cleanName] = c.type;
+      updatedExampleRow[cleanName] =
+        c.type === 'number' ? Number(c.exampleValue) || 0 : c.exampleValue || '';
+    });
+
+    try {
+      setSavingEdit(true);
+      const updated = await updatePost(post.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        goal_count: editGoalCount,
+        schema: updatedSchema,
+        example_row: updatedExampleRow,
+      });
+
+      setPost({
+        ...post,
+        title: updated.title,
+        description: updated.description,
+        goal_count: updated.goal_count,
+        schema: updated.schema,
+        example_row: updated.example_row,
+      });
+
+      setIsEditModalOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update post');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Author Delete
+  const handleDeletePost = async () => {
+    if (!post) return;
+    if (confirm('Are you sure you want to delete this dataset request? This action cannot be undone.')) {
+      try {
+        await deletePost(post.id);
+        alert('Post deleted successfully.');
+        onNavigate('home');
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete post');
+      }
+    }
   };
 
   const handleExportCSV = () => {
@@ -164,26 +303,113 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
         <main className="lg:col-span-2 flex flex-col gap-4">
           <article className="rounded-xl border border-[#343536] bg-[#1A1A1B] p-5 shadow-sm">
             
-            <div className="flex items-center justify-between text-xs text-[#818384] mb-3">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[#D7DADC] hover:underline cursor-pointer">
-                  r/{post.community?.slug || 'general'}
-                </span>
-                <span>•</span>
-                <span>Posted by u/{post.author?.username || 'anonymous'}</span>
-                <span>•</span>
-                <span>{new Date(post.created_at).toLocaleDateString()}</span>
+            {/* Header: Reddit-Style Back Button + Info + 3-Dots */}
+            <div className="flex items-center justify-between text-xs text-[#818384] mb-4 pb-3 border-b border-[#343536]/50">
+              <div className="flex items-center gap-3">
+                {/* SOPHISTICATED REDDIT BACK BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => onNavigate('home')}
+                  aria-label="Back"
+                  className="w-8 h-8 rounded-full bg-[#272729] hover:bg-[#343536] text-[#D7DADC] border border-[#343536] flex items-center justify-center transition cursor-pointer shrink-0"
+                >
+                  <svg fill="currentColor" height="16" viewBox="0 0 20 20" width="16">
+                    <path d="M17.5 9.1H4.679l5.487-5.462a.898.898 0 00.003-1.272.898.898 0 00-1.272-.003l-7.032 7a.898.898 0 000 1.275l7.03 7a.896.896 0 001.273-.003.898.898 0 00-.002-1.272l-5.487-5.462h12.82a.9.9 0 000-1.8Z"></path>
+                  </svg>
+                </button>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    onClick={() => onNavigate('community', post.community?.slug)}
+                    className="font-bold text-[#D7DADC] hover:underline cursor-pointer"
+                  >
+                    r/{post.community?.slug || 'general'}
+                  </span>
+                  <span>•</span>
+                  <span>Posted by u/{post.author?.username || 'anonymous'}</span>
+                  <span>•</span>
+                  <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => onNavigate('home')}
-                className="hover:text-[#D7DADC] text-xs font-semibold"
-              >
-                ← Back
-              </button>
+              {/* REDDIT 3-DOTS OVERFLOW BUTTON */}
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowMenu((prev) => !prev)}
+                  aria-label="Open user actions"
+                  className="w-8 h-8 rounded-full hover:bg-[#272729] text-[#818384] hover:text-[#D7DADC] flex items-center justify-center transition cursor-pointer"
+                  aria-haspopup="menu"
+                  aria-expanded={showMenu}
+                >
+                  <svg fill="currentColor" height="16" viewBox="0 0 20 20" width="16">
+                    <path d="M16 11.75a1.75 1.75 0 11.001-3.501A1.75 1.75 0 0116 11.75ZM11.75 10a1.75 1.75 0 10-3.501.001A1.75 1.75 0 0011.75 10Zm-6 0a1.75 1.75 0 10-3.501.001A1.75 1.75 0 005.75 10Z"></path>
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {showMenu && (
+                  <div className="absolute right-0 top-9 z-30 w-48 rounded-xl border border-[#343536] bg-[#1A1A1B] p-1.5 shadow-2xl">
+                    {isAuthor && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMenu(false);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-[#D7DADC] hover:bg-[#272729] transition text-left cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-[#FF4500]" />
+                          <span>Edit Post &amp; Columns</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMenu(false);
+                            handleDeletePost();
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-red-400 hover:bg-[#272729] transition text-left cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Post</span>
+                        </button>
+
+                        <div className="my-1 border-t border-[#343536]" />
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        setShowMenu(false);
+                        alert('Link copied to clipboard!');
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-[#818384] hover:text-[#D7DADC] hover:bg-[#272729] transition text-left cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Link</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMenu(false);
+                        alert('Post saved to your profile!');
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-[#818384] hover:text-[#D7DADC] hover:bg-[#272729] transition text-left cursor-pointer"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>Save Post</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Post Title & Description */}
             <h1 className="text-xl font-bold text-[#D7DADC] mb-2">{post.title}</h1>
             <p className="text-xs text-[#D7DADC]/90 leading-relaxed whitespace-pre-line mb-6">
               {post.description}
@@ -214,7 +440,7 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
                     type="button"
                     onClick={() => setIsModalOpen(true)}
                     disabled={!currentUser}
-                    className="flex items-center gap-1.5 rounded-full bg-[#FF4500] hover:bg-[#E03D00] px-4 py-1.5 text-xs font-semibold text-white transition shadow-sm disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-full bg-[#FF4500] hover:bg-[#E03D00] px-4 py-1.5 text-xs font-semibold text-white transition shadow-sm disabled:opacity-50 cursor-pointer"
                   >
                     <span>+</span> Contribute Data
                   </button>
@@ -223,7 +449,7 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
                     type="button"
                     onClick={handleExportCSV}
                     disabled={rows.length === 0}
-                    className="flex items-center gap-1.5 rounded-full border border-[#343536] bg-[#1A1A1B] hover:bg-[#272729] px-4 py-1.5 text-xs font-semibold text-[#D7DADC] transition disabled:opacity-40"
+                    className="flex items-center gap-1.5 rounded-full border border-[#343536] bg-[#1A1A1B] hover:bg-[#272729] px-4 py-1.5 text-xs font-semibold text-[#D7DADC] transition disabled:opacity-40 cursor-pointer"
                   >
                     <span>📥</span> Export CSV ({rows.length})
                   </button>
@@ -292,7 +518,7 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
               <button
                 type="button"
                 onClick={handleVote}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${
                   post.has_upvoted
                     ? 'border-[#FF4500] text-[#FF4500] bg-[#FF4500]/10'
                     : 'border-[#343536] text-[#818384] hover:bg-[#272729] hover:text-[#D7DADC]'
@@ -326,7 +552,7 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
                   type="button"
                   onClick={handleJoinToggle}
                   disabled={!currentUser}
-                  className={`rounded-full px-3.5 py-1 text-xs font-semibold transition ${
+                  className={`rounded-full px-3.5 py-1 text-xs font-semibold transition cursor-pointer ${
                     isJoined
                       ? 'border border-[#343536] text-[#D7DADC] hover:bg-[#272729]'
                       : 'bg-[#FF4500] text-white hover:bg-[#E03D00]'
@@ -373,6 +599,7 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
         </aside>
       </div>
 
+      {/* Contribute Row Modal */}
       <ContributeRowModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -380,6 +607,193 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
         exampleRow={post.example_row || {}}
         onSubmit={handleContributeRow}
       />
+
+      {/* AUTHOR EDIT POST & COLUMNS MODAL */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl rounded-2xl border border-[#343536] bg-[#1A1A1B] p-6 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#343536] pb-3 mb-4 shrink-0">
+              <h2 className="text-base font-bold text-[#D7DADC] flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-[#FF4500]" />
+                Edit Dataset Request &amp; Schema
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-[#818384] hover:text-[#D7DADC] cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePostEdit} className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1">
+              {/* Title */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[#D7DADC]">Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="rounded-lg border border-[#343536] bg-[#272729] px-3.5 py-2 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[#D7DADC]">Description / Instructions</label>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="rounded-lg border border-[#343536] bg-[#272729] p-3 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none resize-y"
+                />
+              </div>
+
+              {/* Target Rows Goal */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[#D7DADC]">Target Rows Goal</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editGoalCount}
+                  onChange={(e) => setEditGoalCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="rounded-lg border border-[#343536] bg-[#272729] px-3.5 py-2 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none w-36"
+                />
+              </div>
+
+              {/* ================= COLUMNS / SCHEMA SECTION ================= */}
+              <div className="flex flex-col gap-2 border-t border-[#343536] pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#D7DADC]">
+                      Dataset Columns (Schema)
+                    </h3>
+                    <p className="text-[11px] text-[#818384] mt-0.5">
+                      Existing columns are locked to preserve contributors' data. You can edit their sample values or add new columns.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddNewColumn}
+                    className="flex items-center gap-1 rounded-lg bg-[#272729] hover:bg-[#343536] border border-[#343536] px-3 py-1.5 text-xs font-semibold text-[#D7DADC] transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#FF4500]" />
+                    <span>Add Column</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2.5 mt-2">
+                  {columnsList.map((col) => (
+                    <div
+                      key={col.id}
+                      className="p-3 bg-[#272729]/60 border border-[#343536] rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-2.5"
+                    >
+                      {/* Column Name */}
+                      <div className="flex-1 w-full">
+                        <label className="text-[10px] text-[#818384] mb-1 flex items-center gap-1 font-semibold">
+                          {col.isExisting && <Lock className="w-3 h-3 text-[#818384]" />}
+                          <span>Column Name</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. price_usd"
+                          value={col.name}
+                          disabled={col.isExisting}
+                          onChange={(e) =>
+                            handleUpdateColumn(col.id, {
+                              name: e.target.value.toLowerCase().replace(/\s+/g, '_'),
+                            })
+                          }
+                          className={`w-full rounded-md border border-[#343536] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none ${
+                            col.isExisting ? 'bg-[#1A1A1B] opacity-75 cursor-not-allowed font-mono' : 'bg-[#1A1A1B]'
+                          }`}
+                          required
+                        />
+                      </div>
+
+                      {/* Data Type */}
+                      <div className="w-full sm:w-36">
+                        <label className="text-[10px] text-[#818384] mb-1 block font-semibold">
+                          Data Type
+                        </label>
+                        <select
+                          value={col.type}
+                          disabled={col.isExisting}
+                          onChange={(e) => handleUpdateColumn(col.id, { type: e.target.value })}
+                          className={`w-full rounded-md border border-[#343536] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none ${
+                            col.isExisting ? 'bg-[#1A1A1B] opacity-75 cursor-not-allowed' : 'bg-[#1A1A1B] cursor-pointer'
+                          }`}
+                        >
+                          <option value="string">Text (string)</option>
+                          <option value="number">Number</option>
+                          <option value="boolean">Boolean</option>
+                          <option value="date">Date</option>
+                          <option value="image_url">Image URL</option>
+                        </select>
+                      </div>
+
+                      {/* Example Row Value */}
+                      <div className="flex-1 w-full">
+                        <label className="text-[10px] text-[#818384] mb-1 block font-semibold">
+                          Example Value
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Sample data value"
+                          value={col.exampleValue}
+                          onChange={(e) => handleUpdateColumn(col.id, { exampleValue: e.target.value })}
+                          className="w-full rounded-md border border-[#343536] bg-[#1A1A1B] px-2.5 py-1.5 text-xs text-[#D7DADC] focus:border-[#FF4500] focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Status / Remove button (only newly added columns can be discarded) */}
+                      <div className="sm:self-end pb-0.5">
+                        {col.isExisting ? (
+                          <span
+                            title="Existing columns cannot be deleted to preserve contributor rows"
+                            className="inline-flex items-center gap-1 text-[11px] text-[#818384] px-2 py-1.5 bg-[#1A1A1B] rounded-md border border-[#343536] select-none"
+                          >
+                            <Lock className="w-3 h-3" />
+                            <span>Locked</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDraftColumn(col.id)}
+                            title="Remove newly added column"
+                            className="p-1.5 text-[#818384] hover:text-red-400 hover:bg-[#1A1A1B] rounded-md transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-4 flex justify-end gap-2 border-t border-[#343536] pt-4 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="rounded-full border border-[#343536] px-4 py-1.5 text-xs font-semibold text-[#818384] hover:bg-[#272729] hover:text-[#D7DADC] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit || !editTitle.trim()}
+                  className="rounded-full bg-[#FF4500] px-5 py-1.5 text-xs font-semibold text-white hover:bg-[#E03D00] disabled:opacity-50 cursor-pointer"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -45,34 +45,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onNavigate }) => {
         
         {/* ================= FEEDS GROUP ================= */}
         <div className="flex flex-col gap-1">
-          <div className="text-[11px] font-bold text-[#818384] px-3 py-1 uppercase tracking-wider">
-            Feeds
-          </div>
-
-          <button 
-            type="button"
-            onClick={() => onNavigate?.('home')} 
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-xl hover:bg-[#272729] text-left transition"
-          >
-            <span className="text-base">🏠</span> Home
-          </button>
-
-          <button 
-            type="button"
-            onClick={() => onNavigate?.('home')} 
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-xl hover:bg-[#272729] text-left transition text-[#818384] hover:text-white"
-          >
-            <span className="text-base">🔥</span> Popular
-          </button>
-
-          <button 
-            type="button"
-            onClick={() => onNavigate?.('home')} 
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-xl hover:bg-[#272729] text-left transition text-[#818384] hover:text-white"
-          >
-            <span className="text-base">🌐</span> Explore
-          </button>
-
+          
           {/* Start Community Button */}
           <button
             type="button"
@@ -115,9 +88,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onNavigate }) => {
                     className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold hover:bg-[#272729] hover:text-white text-[#D7DADC] text-left transition group"
                   >
                     <div className="w-6 h-6 rounded-full bg-[#FF4500] text-white flex items-center justify-center text-[10px] shrink-0 font-bold">
-                      r/
+                      c/
                     </div>
-                    <span className="truncate flex-1">r/{sub.name}</span>
+                    <span className="truncate flex-1">c/{sub.name}</span>
                   </button>
                 ))
               )}
@@ -154,9 +127,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onNavigate }) => {
                     className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold hover:bg-[#272729] hover:text-white text-[#D7DADC] text-left transition group"
                   >
                     <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] shrink-0 font-bold">
-                      r/
+                      c/
                     </div>
-                    <span className="truncate flex-1">r/{sub.name}</span>
+                    <span className="truncate flex-1">c/{sub.name}</span>
                   </button>
                 ))
               )}
@@ -167,7 +140,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onNavigate }) => {
         <hr className="border-[#343536] my-1" />
 
         {/* ================= RESOURCES ================= */}
-        <div className="flex flex-col gap-1 text-[#818384]">
+        {/* <div className="flex flex-col gap-1 text-[#818384]">
           <div className="text-[11px] font-bold px-3 py-1 uppercase tracking-wider">
             Resources
           </div>
@@ -177,7 +150,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onNavigate }) => {
           <a href="#" className="flex items-center gap-3 px-3 py-1.5 text-xs hover:text-white hover:bg-[#272729] rounded-xl transition">
             <span>🛡️</span> Privacy Policy
           </a>
-        </div>
+        </div> */}
       </aside>
 
       {/* Modal for creating community */}
