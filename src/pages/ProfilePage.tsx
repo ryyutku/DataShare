@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseclient';
 import { LeftSidebar } from '../components/navigation/LeftSidebar';
 import { PostCard } from '../components/ui/PostCard';
+import { ProfileRightSidebar } from '../components/profile/profileRightSide';
 import {
   getUserPosts,
   getUserContributions,
@@ -18,10 +19,7 @@ import {
   Database, 
   MessageSquare, 
   Bookmark, 
-  Clock, 
-  Calendar, 
-  Award, 
-  LogOut 
+  Clock 
 } from 'lucide-react';
 
 export type ProfileTab = 'posts' | 'contributions' | 'comments' | 'saved' | 'history';
@@ -69,7 +67,8 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
           .eq('id', user.id)
           .maybeSingle();
 
-        const currentUsername = userData?.username || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
+        const currentUsername =
+          userData?.username || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
 
         // Load all profile categories in parallel
         const [postsData, contribsData, commentsData, historyData, savedData] = await Promise.all([
@@ -90,7 +89,11 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
         const totalUpvotes = postsData.reduce((acc, p) => acc + (p.upvotes_count || 0), 0);
         const userDate = userData?.created_at || user.created_at;
         const dateFormatted = userDate
-          ? new Date(userDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+          ? new Date(userDate).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
           : 'Recently';
 
         setStats({
@@ -142,10 +145,10 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
                   color: '#fff', 
                   fontSize: '2rem', 
                   fontWeight: 800,
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.5)' 
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                 }}
               >
-                {username[0].toUpperCase()}
+                {username[0]?.toUpperCase() || 'U'}
               </div>
 
               <div style={{ paddingBottom: '4px' }}>
@@ -324,7 +327,7 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
               )
             )}
 
-            {/* TAB 5: History (Interacted & Viewed Posts) */}
+            {/* TAB 5: History (Viewed & Interacted Posts) */}
             {activeTab === 'history' && (
               historyPosts.length === 0 ? (
                 <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '40px', textAlign: 'center' }}>
@@ -352,58 +355,13 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
         )}
       </main>
 
-      {/* Right Sidebar: Real Dynamic Stats */}
-      <aside className="right-sidebar">
-        <div style={{ backgroundColor: '#1A1A1B', border: '1px solid #343536', borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#FF4500', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.25rem', fontWeight: 800 }}>
-              {username[0].toUpperCase()}
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', margin: 0 }}>u/{username}</h3>
-              <span style={{ fontSize: '0.75rem', color: '#818384' }}>{currentUser?.email}</span>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', borderTop: '1px solid #343536', paddingTop: '12px', marginBottom: '16px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#818384' }}>
-                <Award style={{ width: '14px', height: '14px', color: '#FF4500' }} />
-                <span>Karma</span>
-              </div>
-              <strong style={{ fontSize: '0.95rem', color: '#fff' }}>{stats.karma}</strong>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#818384' }}>
-                <Calendar style={{ width: '14px', height: '14px', color: '#3b82f6' }} />
-                <span>Cake day</span>
-              </div>
-              <strong style={{ fontSize: '0.95rem', color: '#fff' }}>{stats.createdDate}</strong>
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid #343536', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#818384' }}>
-              <span>Created Requests</span>
-              <strong style={{ color: '#D7DADC' }}>{stats.postsCount}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#818384' }}>
-              <span>Contributed Datasets</span>
-              <strong style={{ color: '#D7DADC' }}>{stats.contributionsCount}</strong>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSignOut}
-            className="btn-action"
-            style={{ width: '100%', marginTop: '16px', justifyContent: 'center', color: '#ef4444', backgroundColor: '#272729', cursor: 'pointer' }}
-          >
-            <LogOut style={{ width: '14px', height: '14px' }} />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </aside>
+      {/* Profile Right Sidebar Component */}
+      <ProfileRightSidebar
+        username={username}
+        email={currentUser?.email}
+        stats={stats}
+        onSignOut={handleSignOut}
+      />
     </div>
   );
 }
