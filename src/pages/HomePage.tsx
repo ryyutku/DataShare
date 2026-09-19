@@ -97,7 +97,7 @@ export const HomePage: React.FC<HomePageProps> = ({ searchFilter, onClearSearch,
           ))}
       </main>
 
-      <RightSidebar />
+      <RightSidebar onNavigate={onNavigate}/>
     </div>
   );
 };

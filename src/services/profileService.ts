@@ -116,3 +116,26 @@ export function isPostSaved(postId: string, userId: string): boolean {
   const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
   return saved.includes(postId);
 }
+
+export function addToHistory(postId: string, userId?: string): void {
+  const key = userId ? `history_posts_${userId}` : 'history_posts_guest';
+  const existing: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+  
+  // Place newly visited post at the top, max 50 in history
+  const updated = [postId, ...existing.filter((id) => id !== postId)].slice(0, 50);
+  localStorage.setItem(key, JSON.stringify(updated));
+
+  // Dispatch event so RightSidebar updates without requiring a page refresh
+  window.dispatchEvent(new Event('history-updated'));
+}
+
+export function getHistoryPostIds(userId?: string): string[] {
+  const key = userId ? `history_posts_${userId}` : 'history_posts_guest';
+  return JSON.parse(localStorage.getItem(key) || '[]');
+}
+
+export function clearHistory(userId?: string): void {
+  const key = userId ? `history_posts_${userId}` : 'history_posts_guest';
+  localStorage.removeItem(key);
+  window.dispatchEvent(new Event('history-updated'));
+}

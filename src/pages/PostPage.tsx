@@ -1,5 +1,6 @@
 // src/pages/PostPage.tsx
 import React, { useState, useEffect, useRef } from 'react';
+import { addToHistory, toggleSavePost, isPostSaved } from '../services/profileService';
 import { supabase } from '../services/supabaseclient';
 import {
   getPostById,
@@ -71,6 +72,8 @@ export const PostPage: React.FC<PostPageProps> = ({ postId, onNavigate }) => {
 
         const postData = await getPostById(postId, user?.id);
         if (!postData) throw new Error('Dataset post not found.');
+
+        addToHistory(postId, user?.id);
 
         const [rowsData, commentsData] = await Promise.all([
           getSubmissionRows(postId),
