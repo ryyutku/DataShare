@@ -22,9 +22,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (searchTerm.trim().length >= 2) {
+    const term = searchTerm.trim();
+    if (term.length >= 2) {
       const delayDebounce = setTimeout(async () => {
-        const data = await searchAll(searchTerm);
+        const data = await searchAll(term);
         setResults(data);
         setIsOpen(true);
       }, 150);
@@ -216,7 +217,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
                         fontSize: '0.875rem'
                       }}
                     >
-                      <span style={{ fontWeight: '600' }}>r/{c.slug}</span>
+                      <span style={{ fontWeight: '600' }}>c/{c.slug}</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
                         {c.name}
                       </span>
@@ -251,7 +252,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, onSearch }) => {
                         {p.title}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        in r/{p.community?.slug || 'general'}
+                        in c/{p.community?.name}
                       </span>
                     </div>
                   ))}

@@ -20,37 +20,58 @@ export async function searchAll(query: string): Promise<SearchResults> {
     const cleanQuery = query.trim();
     if (!cleanQuery) return { communities: [], posts: [] };
 
-    // Search Communities (Fuzzy search on name, slug, description)
-    const { data: communities } = await supabase
+    const isCommunityOnly = cleanQuery.toLowerCase().startsWith('c/') || cleanQuery.toLowerCase().startsWith('r/');
+    const actualQuery = isCommunityOnly ? cleanQuery.slice(2).trim() : cleanQuery;
+
+    let communitiesQuery = supabase
         .from('community')
-        .select('id, name, slug, description')
-        .or(`name.ilike.%${cleanQuery}%,slug.ilike.%${cleanQuery}%,description.ilike.%${cleanQuery}%`)
-        .limit(5);
+        .select('id, name, slug, description');
 
-    // Calls the PostgreSQL function that understands stems & ranking
-    const { data: smartPosts, error } = await supabase
-        .rpc('search_posts', { search_term: cleanQuery });
+    if (actualQuery) {
+        communitiesQuery = communitiesQuery.or(`name.ilike.%${actualQuery}%,slug.ilike.%${actualQuery}%,description.ilike.%${actualQuery}%`);
+    }
 
-    let finalPosts = smartPosts;
+    const { data: communities } = await communitiesQuery.limit(isCommunityOnly ? 10 : 5);
 
-    if (!finalPosts || finalPosts.length === 0) {
-        const { data: fallbackPosts } = await supabase
-            .from('post')
-            .select(`
-        id,
-        title,
-        description,
-        community:community!post_community_id_fkey (slug, name),
-        author:user!post_author_id_fkey (username)
-      `)
-            .or(`title.ilike.%${cleanQuery}%,description.ilike.%${cleanQuery}%`)
-            .limit(10);
+    let finalPosts: any[] = [];
 
-        finalPosts = fallbackPosts || [];
+    if (!isCommunityOnly && actualQuery) {
+        const { data: smartPostIds } = await supabase
+            .rpc('search_posts', { search_term: actualQuery });
+
+        if (smartPostIds && smartPostIds.length > 0) {
+            const ids = smartPostIds.map((p: any) => p.id);
+            const { data: joinedPosts } = await supabase
+                .from('post')
+                .select(`
+          id,
+          title,
+          description,
+          community:community!post_community_id_fkey (slug, name),
+          author:user!post_author_id_fkey (username)
+        `)
+                .in('id', ids);
+
+            finalPosts = joinedPosts || [];
+        } else {
+            const { data: fallback } = await supabase
+                .from('post')
+                .select(`
+          id,
+          title,
+          description,
+          community:community!post_community_id_fkey (slug, name),
+          author:user!post_author_id_fkey (username)
+        `)
+                .or(`title.ilike.%${actualQuery}%,description.ilike.%${actualQuery}%`)
+                .limit(10);
+
+            finalPosts = fallback || [];
+        }
     }
 
     return {
         communities: (communities as any) || [],
-        posts: (finalPosts as any) || [],
+        posts: finalPosts,
     };
 }
