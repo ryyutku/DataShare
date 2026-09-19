@@ -41,7 +41,7 @@ export default function App() {
         />
       )}
 
-      {currentPage === 'profile' && <ProfilePage />}
+      {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate}/>}
 
       {currentPage === 'create-post' && (
         <CreatePostPage 
